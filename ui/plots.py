@@ -1,6 +1,9 @@
 # datview/ui/plots.py 
 # This file contains the code interfacing with matplotlib for drawing all plots in the GUI
 # Author Natasha Stander
+# 2026 update: plots release their data and signal connections when closed, redraws are
+# coalesced and skipped while hidden, histograms are drawn as step patches (one artist per
+# stack) instead of one rectangle per bin.
 
 try:
     from PyQt5 import QtCore
@@ -16,14 +19,23 @@ except ImportError as e:
     from PyQt4.QtGui import QSizePolicy, QMenu, QApplication, QCursor, QFileDialog, QActionGroup
     from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
     qt5=False
+import gc
 import numpy as np
+import matplotlib
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
-import matplotlib.mlab
 from matplotlib.patches import Rectangle
 from matplotlib.colors import LogNorm
 from api.filters import BetweenFilter
 from scipy.stats import norm
+
+
+def get_cmap(name):
+    """Colour map by name (plt.cm.get_cmap was removed in matplotlib 3.9)."""
+    try:
+        return matplotlib.colormaps[name]
+    except (AttributeError, KeyError):
+        return plt.get_cmap(name)
 
 
 class MyFigure(FigureCanvas):
@@ -42,6 +54,28 @@ class MyFigure(FigureCanvas):
         FigureCanvas.updateGeometry(self)
 
         self.fig.canvas.mpl_connect('motion_notify_event',self.onMotion)
+        if int(flags) & int(QtCore.Qt.Window):
+            # Pop-out plot windows are destroyed when closed, not just hidden.
+            self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+
+    # -- lifecycle -------------------------------------------------------------
+    def release(self):
+        """Disconnect every plot from the data model and free the figure."""
+        for p in self.plts:
+            p.detach()
+        self.plts=[]
+        self.fig.clear()
+
+    def closeEvent(self,event):
+        self.release()
+        FigureCanvas.closeEvent(self,event)
+        gc.collect()
+
+    def showEvent(self,event):
+        FigureCanvas.showEvent(self,event)
+        for p in self.plts:
+            if p.dirty:
+                p.requestDraw()
 
     def histogram(self,model,field,axis=None):
         if axis is None:
@@ -109,14 +143,14 @@ class MyFigure(FigureCanvas):
         if qt5 and name:
             name = name[0]
         if name is not None and len(name):
-            self.fig.savefig(name,ext="png")
+            self.fig.savefig(name,format="png")
 
     def onSaveSVG(self):
         name=QFileDialog.getSaveFileName(self,'Save Plot',filter='*.svg')
         if qt5 and name:
             name = name[0]
         if name is not None and len(name):
-            self.fig.savefig(name,ext="svg")
+            self.fig.savefig(name,format="svg")
 
 
 class MyPlot(QObject):
@@ -124,6 +158,10 @@ class MyPlot(QObject):
         QtCore.QObject.__init__(self,parent)
         self.fig = fig
         self.plt=plt
+        self.connections=[]
+        self.dirty=False
+        self.drawPending=False
+        self.detached=False
         self.fig.canvas.mpl_connect('scroll_event',self.onScroll)
         self.fig.canvas.mpl_connect('button_press_event',self.onPress)
         self.fig.canvas.mpl_connect('button_release_event',self.onRelease)
@@ -165,6 +203,52 @@ class MyPlot(QObject):
 
         self.range=None
         self.origRange=None
+
+    # -- signal bookkeeping ------------------------------------------------------
+    def listen(self,signal,slot):
+        """Connect to a long-lived (model) signal and remember it for detach()."""
+        signal.connect(slot)
+        self.connections.append((signal,slot))
+
+    def detach(self):
+        """Stop reacting to the model. Without this a closed plot kept redrawing on
+        every selection change and kept its data alive."""
+        if self.detached:
+            return
+        self.detached=True
+        for signal,slot in self.connections:
+            try:
+                signal.disconnect(slot)
+            except (TypeError,RuntimeError):
+                pass
+        self.connections=[]
+        for f in (self.fieldfilterX,self.fieldfilterY):
+            if f is not None:
+                try:
+                    f.modelchange.disconnect(self.onFilterChange)
+                except (TypeError,RuntimeError):
+                    pass
+        self.menu.deleteLater()
+
+    def requestDraw(self,*args):
+        """Redraw once the current event has been handled. Several model signals fired by one
+        selection collapse into a single redraw, and plots that are not visible only
+        mark themselves dirty and redraw when shown."""
+        if self.detached:
+            return
+        canvas=self.parent()
+        if canvas is None or not canvas.isVisible():
+            self.dirty=True
+            return
+        if not self.drawPending:
+            self.drawPending=True
+            QtCore.QTimer.singleShot(0,self._deferredDraw)
+
+    def _deferredDraw(self):
+        self.drawPending=False
+        if not self.detached:
+            self.dirty=False
+            self.mydraw()
 
     def legendMenu(self):
         self.legendActionGroup=QActionGroup(self)
@@ -358,7 +442,9 @@ class MyPlot(QObject):
                 if self.manageX or self.manageY:
                     self.parent().draw()
 
-    def onFilterChange(self):
+    def onFilterChange(self,*args):
+        if self.detached:
+            return
         if self.selp is not None:
             return # Selecting is from this plot, wait for both filters to update so we don't clear variables
         ylim = self.plt.get_ylim()
@@ -376,7 +462,8 @@ class MyPlot(QObject):
             self.sel.set_y(self.fieldfilterY.minimum)
             self.sel.set_height(self.fieldfilterY.maximum-self.fieldfilterY.minimum)
             self.sel.set_visible(self.fieldfilterY.isActive() or (self.fieldfilterX is not None and self.fieldfilterX.isActive()))
-        self.parent().draw()
+        if self.parent().isVisible():
+            self.parent().draw_idle()
 
     def xlabels(self,model,field,distribute=False):
         if model.isCategorical(field):
@@ -412,9 +499,9 @@ class MyHistogram(MyPlot):
         self.manageX=True
         self.fieldfilterX=self.model.selectionFilter(self.field)
         self.fieldfilterX.modelchange.connect(self.onFilterChange)
-        self.model.filterchange.connect(self.mydraw)
-        self.model.filterModelChange.connect(self.onFilterModelChange)
-        self.model.stackChange.connect(self.mydraw)
+        self.listen(self.model.filterchange,self.requestDraw)
+        self.listen(self.model.filterModelChange,self.onFilterModelChange)
+        self.listen(self.model.stackChange,self.requestDraw)
 
         self.sel=Rectangle((self.fieldfilterX.minimum,0),self.fieldfilterX.maximum-self.fieldfilterX.minimum,0,alpha=0.3,color='r')
         self.sel.set_visible(self.fieldfilterX.isActive())
@@ -450,6 +537,11 @@ class MyHistogram(MyPlot):
         self.mydraw(False)
 
     def stackedDraw(self,data,alpha):
+        """Draw one histogram layer per stack.
+
+        Counts are computed with numpy and each stack is drawn as a single filled step patch
+        (matplotlib stairs). self.cnts holds cumulative counts per stack, as matplotlib's
+        "barstacked" histogram did, so tooltips are unchanged."""
         self.edges=None
         if len(data[0]): # Have array to plot
             self.labels=data[2]
@@ -462,9 +554,23 @@ class MyHistogram(MyPlot):
                                  edgecolor="none",align="center",bottom=self.cnts[i,cnts[0].astype(int)-self.dmin],linewidth=0,label=data[2][i])
                     self.cnts[i:,cnts[0].astype(int)-self.dmin]+=cnts[1]
             else:
-                self.cnts,self.edges,_=self.plt.hist(data[0],bins=self.bins,color=data[1],range=self.range,
-                              alpha=alpha,histtype="barstacked",linewidth=0,rwidth=1,label=data[2])
-                self.cnts=np.array(self.cnts)
+                rng=self.range
+                if rng is None:
+                    allv=np.concatenate(data[0])
+                    rng=(float(np.min(allv)),float(np.max(allv))) if len(allv) else (0.0,1.0)
+                if rng[0] == rng[1]:
+                    rng=(rng[0]-0.5,rng[1]+0.5)
+                self.edges=np.linspace(rng[0],rng[1],self.bins+1)
+                base=np.zeros(self.bins)
+                cum=[]
+                for i,d in enumerate(data[0]):
+                    h,_=np.histogram(d,bins=self.edges)
+                    top=base+h
+                    self.plt.stairs(top,self.edges,baseline=base,fill=True,color=data[1][i],
+                                    alpha=alpha,linewidth=0,label=data[2][i])
+                    cum.append(top)
+                    base=top
+                self.cnts=np.array(cum) if len(cum) > 1 else cum[0]
         return self.edges
 
     def datadraw(self):
@@ -583,8 +689,8 @@ class MyScatter(MyPlot):
         self.vmin=None
         self.vmax=None
 
-        self.model.filterchange.connect(self.mydraw)
-        self.model.filterModelChange.connect(self.onFilterModelChange)
+        self.listen(self.model.filterchange,self.requestDraw)
+        self.listen(self.model.filterModelChange,self.onFilterModelChange)
         self.plt.set_xlim((self.model.fieldmin(self.xfield),self.model.fieldmax(self.xfield)))
         self.plt.set_ylim((self.model.fieldmin(self.yfield),self.model.fieldmax(self.yfield)))
 
@@ -601,7 +707,7 @@ class MyScatter(MyPlot):
         if self.cfield is not None:
             cAll=self.model.datacol(self.cfield)
             cFiltered=self.model.datacol(self.cfield,filtered=True)
-            cm=plt.cm.get_cmap(self.model.cfg.scattercmap)
+            cm=get_cmap(self.model.cfg.scattercmap)
             if self.vmin is None:
                 self.vmin=self.model.fieldmin(self.cfield)
             if self.vmax is None:
@@ -680,8 +786,8 @@ class MyHist2d(MyPlot):
         self.fieldfilterY=self.model.selectionFilter(self.yfield)
         self.fieldfilterY.modelchange.connect(self.onFilterChange)
 
-        self.model.filterchange.connect(self.mydraw)
-        self.model.filterModelChange.connect(self.onFilterModelChange)
+        self.listen(self.model.filterchange,self.requestDraw)
+        self.listen(self.model.filterModelChange,self.onFilterModelChange)
         self.plt.set_xlim((self.model.fieldmin(self.xfield),self.model.fieldmax(self.xfield)))
         self.plt.set_ylim((self.model.fieldmin(self.yfield),self.model.fieldmax(self.yfield)))
 
@@ -744,7 +850,7 @@ class MyHist2d(MyPlot):
         h=self.H
         if self.model.cfg.histAlwaysMask0:
             h=np.ma.masked_values(h,0)
-        sc=self.plt.pcolormesh(self.xedges,self.yedges,np.transpose(h),cmap=plt.cm.get_cmap(self.model.cfg.hist2dcmap),norm=norm)
+        sc=self.plt.pcolormesh(self.xedges,self.yedges,np.transpose(h),cmap=get_cmap(self.model.cfg.hist2dcmap),norm=norm)
         if self.cb is None:
             self.cb=self.fig.colorbar(sc,ax=self.plt)
         else:
@@ -832,8 +938,8 @@ class MyPixelPlot(MyPlot):
         self.vmin=None
         self.vmax=None
 
-        self.model.filterchange.connect(self.mydraw)
-        self.model.filterModelChange.connect(self.onFilterModelChange)
+        self.listen(self.model.filterchange,self.requestDraw)
+        self.listen(self.model.filterModelChange,self.onFilterModelChange)
 
         self.sel=Rectangle((0,0),0,0,color='r',fill=False)
         self.onFilterChange() # Let this function worry about actual bounds, we just cared about color and fill
@@ -861,7 +967,7 @@ class MyPixelPlot(MyPlot):
         if self.vmax is None:
             self.vmax=self.model.fieldmax(self.cfield)
 
-        p=self.plt.pcolormesh(np.ma.masked_values(self.cdat,-1),cmap=plt.cm.get_cmap(self.model.cfg.pixelcmap),vmin=self.vmin,vmax=self.vmax)
+        p=self.plt.pcolormesh(np.ma.masked_values(self.cdat,-1),cmap=get_cmap(self.model.cfg.pixelcmap),vmin=self.vmin,vmax=self.vmax)
 
         if self.cb is None:
             self.cb=self.fig.colorbar(p,ax=self.plt)
@@ -1007,8 +1113,8 @@ class MyAggPlot(MyPlot):
         self.fieldfilterY.modelchange.connect(self.onFilterChange)
 
 
-        self.model.filterchange.connect(self.mydraw)
-        self.model.filterModelChange.connect(self.onFilterModelChange)
+        self.listen(self.model.filterchange,self.requestDraw)
+        self.listen(self.model.filterModelChange,self.onFilterModelChange)
 
         self.sel=Rectangle((0,0),0,0,color='r',fill=False)
         self.onFilterChange() # Let this function worry about actual bounds, we just cared about color and fill

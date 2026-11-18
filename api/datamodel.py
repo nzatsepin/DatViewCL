@@ -352,8 +352,8 @@ class DataModel(QObject):
                 group1=int(parts[2])
                 group2=int(parts[3])
 
-                f1=BetweenFilter(self.fieldmin(field)-1,self.fieldmax(field)+1,self.cmpvalues(field)[:,group1],field)
-                f2=BetweenFilter(self.fieldmin(field)-1,self.fieldmax(field)+1,self.cmpvalues(field)[:,group2],field)
+                f1=BetweenFilter(float(self.fieldmin(field))-1,float(self.fieldmax(field))+1,self.cmpvalues(field)[:,group1],field)
+                f2=BetweenFilter(float(self.fieldmin(field))-1,float(self.fieldmax(field))+1,self.cmpvalues(field)[:,group2],field)
                 f1.setActive(False)
                 f2.setActive(False)
                 nm="%s,%s"%(self.stringValue(DataModel.compareGroupName,group1),self.stringValue(DataModel.compareGroupName,group2))
@@ -362,13 +362,27 @@ class DataModel(QObject):
                 self.selfilters[origfield]=f1
                 self.selfilters[DataModel.cmpColTemplate%(parts[0],group2,group1)]=f2
             else:
-                f=BetweenFilter(self.fieldmin(field)-1,self.fieldmax(field)+1,self.data[field],field)
+                f=BetweenFilter(float(self.fieldmin(field))-1,float(self.fieldmax(field))+1,self.data[field],field)
                 f.setActive(False)
                 self.addFilter(f)
                 self.selfilters[field]=f
         if origfield in self.selfilters:
             return self.selfilters[origfield]
         return self.selfilters[field]
+
+    def derivedSelectionFilter(self,name,values):
+        """Selection filter on a computed per-row array (e.g. plate plot coordinates) that is
+        not a column of the table. Behaves like selectionFilter for plots; it is saved with
+        the other filters but only re-applies while the plot that defines it is open."""
+        if name not in self.selfilters:
+            valid=values[np.isfinite(values)]
+            lo=float(np.min(valid))-1 if len(valid) else -1
+            hi=float(np.max(valid))+1 if len(valid) else 1
+            f=BetweenFilter(lo,hi,values,name)
+            f.setActive(False)
+            self.addFilter(f)
+            self.selfilters[name]=f
+        return self.selfilters[name]
 
     def applyFilters(self):
         self._filtered=None

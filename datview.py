@@ -5,7 +5,9 @@
 # Main program and window of GUI.
 # Author Natasha Stander
 
+import os
 import sys
+import gc
 import argparse
 import numpy as np
 try:
@@ -25,6 +27,8 @@ from ui.controlPanel import MyControlPanel
 from ui.plotDialogs import *
 from ui.itemViewer import MyItemViewer
 from ui.plots import MyFigure
+from ui.mergeDialog import MyMergeDialog
+from ui.plateplot import MyPlatePlotDialog, hasPlateColumns
 
 class MyMainWindow(QMainWindow):
     def __init__(self,datfile,groupfile,filterfile,cfg,geom,mask):
@@ -57,10 +61,24 @@ class MyMainWindow(QMainWindow):
         self.ui.actionComparison_Scatter.triggered.connect(self.onShowCmpScatter)
         self.ui.actionComparison_2D_Histogram.setVisible(self.model.hasComparisons())
         self.ui.actionComparison_2D_Histogram.triggered.connect(self.onShowCmpHist2d)
-        
+
+        # Merge the selection without writing a stream file (process_hkl / partialator)
+        self.actionMerge=QAction("Merge Selection (process_hkl / partialator)...",self)
+        self.actionMerge.setEnabled(self.model.canSaveStream())
+        self.actionMerge.triggered.connect(self.onMerge)
+        self.ui.menuFile.insertAction(self.ui.actionSave_Numpy,self.actionMerge)
+
+        # Plate / sample position plot
+        self.actionPlate=QAction("Plate / Sample Position Plot",self)
+        self.actionPlate.triggered.connect(self.onShowPlatePlot)
+        self.actionPlate.setEnabled(hasPlateColumns(self.model))
+        self.ui.menuPlot.addAction(self.actionPlate)
+
 
         self.filtmessage=QLabel(self)
         self.ui.statusbar.addWidget(self.filtmessage)
+        self.memmessage=QLabel(self)
+        self.ui.statusbar.addPermanentWidget(self.memmessage)
         self.onFilterChange()
         self.model.filterchange.connect(self.onFilterChange)
 
@@ -124,12 +142,22 @@ class MyMainWindow(QMainWindow):
         if checked:
             self.checkedhistograms.append(field)
         else:
+            # Unticked histograms are destroyed rather than hidden, so they stop redrawing
+            # on every selection and their memory is returned.
             self.checkedhistograms.remove(field)
-            self.cachedHistograms[field].setVisible(False)
+            h=self.cachedHistograms.pop(field)
+            self.ui.gridLayout.removeWidget(h)
+            h.release()
+            h.setParent(None)
+            h.deleteLater()
+            gc.collect()
         self.placeHistograms()
 
     def onFilterChange(self):
-        self.filtmessage.setText('%d of %d Selected' %(len(self.model.filtered), len(self.model.data)))
+        self.filtmessage.setText('%d of %d Selected' %(self.model.selectedCount(), len(self.model.data)))
+        mb=residentMB()
+        if mb is not None:
+            self.memmessage.setText('Memory: %.0f MB'%mb)
 
     def getSaveName(self,title,filter):
         name=QFileDialog.getSaveFileName(self,title,filter=filter)
@@ -186,7 +214,29 @@ class MyMainWindow(QMainWindow):
     def onShowAggPlot(self):
         d=MyAggPlotDialog(self.model,self)
         d.exec()
-        
+
+    def onShowPlatePlot(self):
+        d=MyPlatePlotDialog(self.model,self)
+        d.exec()
+
+    def onMerge(self):
+        d=MyMergeDialog(self.model,self.controlPanel.partWidget.current(),self)
+        d.exec()
+
+
+def residentMB():
+    """Current resident memory of this process in MB (Linux /proc, else peak RSS)."""
+    try:
+        with open('/proc/self/statm') as f:
+            return int(f.read().split()[1])*os.sysconf('SC_PAGE_SIZE')/1e6
+    except (OSError,ValueError,AttributeError):
+        pass
+    try:
+        import resource
+        r=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return r/1e6 if sys.platform == 'darwin' else r/1e3
+    except ImportError:
+        return None
 
 def main():
     parser=argparse.ArgumentParser(description='Display statistics from a dat file and allow filtering and output to new files')

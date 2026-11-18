@@ -18,6 +18,10 @@ from pyqtgraph import ImageView, ColorMap, mkPen, ScatterPlotItem, TextItem
 import scipy.constants
 import scipy.spatial
 import h5py
+try:
+    import hdf5plugin  # noqa: F401  bitshuffle/LZ4 decompression for EIGER data
+except ImportError:
+    pass
 from dv_cfelpyutils import cfel_geom
 from cxiview.cfel_imgtools import histogram_clip_levels
 
@@ -272,6 +276,9 @@ class CrystfelImage(QObject):
         r=None
         if self.curFile is None:
             return r
+        eiger=self.eigerFrame()
+        if eiger is not None:
+            return eiger
         for path in paths:
             if path in self.curFile:
                 if self.checkEvent:
@@ -284,6 +291,29 @@ class CrystfelImage(QObject):
                     r=self.curFile[path]
                 break
         return r
+
+    def eigerFrame(self):
+        """Frame from a DECTRIS master file whose /entry/data holds data_000001, data_000002, ...
+        external links (no single /entry/data/data dataset). The event number counts frames
+        across the linked files in order."""
+        entry=self.curFile.get('/entry/data')
+        if entry is None or '/entry/data/data' in self.curFile or not self.checkEvent:
+            return None
+        links=sorted(k for k in entry.keys() if k.startswith('data_'))
+        if not links:
+            return None
+        e=int(self.dmodel.data["event"][self.imodel.currow])
+        if e < 0:
+            e=0
+        for k in links:
+            try:
+                d=entry[k]
+            except KeyError:     # external data file missing
+                continue
+            if e < d.shape[0]:
+                return d[e]
+            e-=d.shape[0]
+        return None
 
     def image(self):
         image = None
