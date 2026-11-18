@@ -27,6 +27,7 @@ from api.datamodel import DataModel
 from api.modelcfg import ModelConfig
 
 from ui.plots import MyFigure
+from ui.plateplot import MyPlatePlot, PlateLayout, PLATES, AGGREGATES
 
 def generateAxis(figArgs,plotnum,args):
     r=args.prow
@@ -82,6 +83,36 @@ histParser.add_argument('--prow',default=None,type=int,help="Plot row inside fig
 histParser.add_argument('--pcol',default=None,type=int,help="Plot column inside figure (used in subplot2grid, first row is 0).")
 histParser.add_argument('--prowspan',default=1,type=int,help="Plot row span inside figure (used in subplot2grid).")
 histParser.add_argument('--pcolspan',default=1,type=int,help="Plot column span inside figure (used in subplot2grid).")
+
+plateParser=argparse.ArgumentParser(prog="plate")
+plateParser.add_argument('-c','--cfield',required=True,help="Field to colour wells/raster points by")
+plateParser.add_argument('--agg',choices=AGGREGATES,default="mean",help="Statistic per well/drop/raster point (-1 values ignored except by count)")
+plateParser.add_argument('--plate',choices=['auto','24','96'],default='auto',help="Plate format: 24 (4x6), 96 (8x12) or from data")
+plateParser.add_argument('--drops',type=int,default=None,help="Drops per well (default from data)")
+plateParser.add_argument('--noraster',action='store_true',help="One value per drop even if grid positions exist")
+plateParser.add_argument('--cmin',type=float,default=None,help="colour scale minimum")
+plateParser.add_argument('--cmax',type=float,default=None,help="colour scale maximum")
+plateParser.add_argument('-t','--title',default=None,help="Plot title")
+plateParser.add_argument('--datashown',choices=['raw','filtered'],default='filtered',help="Plot the filtered or the complete dataset")
+plateParser.add_argument('--prow',default=None,type=int,help="Plot row inside figure (first row is 0).")
+plateParser.add_argument('--pcol',default=None,type=int,help="Plot column inside figure (first col is 0).")
+plateParser.add_argument('--prowspan',default=1,type=int,help="Plot row span inside figure.")
+plateParser.add_argument('--pcolspan',default=1,type=int,help="Plot column span inside figure.")
+
+def plate(model,myFigure,figArgs,plotNum,plotArgString):
+    plotArgs=plateParser.parse_args(shlex.split(plotArgString[5:]))
+    ax=generateAxis(figArgs,plotNum,plotArgs)
+    fmt={'auto':None,'24':(4,6),'96':(8,12)}[plotArgs.plate]
+    lay=PlateLayout(model,fmt,plotArgs.drops,not plotArgs.noraster)
+    p=MyPlatePlot(model,plotArgs.cfield,plotArgs.agg,lay,figArgs.fig,ax,myFigure)
+    myFigure.plts.append(p)
+    if plotArgs.cmin is not None or plotArgs.cmax is not None:
+        p.clim=(plotArgs.cmin,plotArgs.cmax)
+    if plotArgs.datashown == 'raw':
+        p.drawAll.setChecked(True)
+    p.mydraw(False)
+    if plotArgs.title is not None:
+        p.plt.set_title(plotArgs.title)
 
 def histogram(model,myFigure,figArgs,plotNum,plotArgString):
     plotArgs=histParser.parse_args(shlex.split(plotArgString[9:]))
@@ -358,6 +389,10 @@ Plot Argument Descriptions:
   --lmax                Legend field maximum
   --lbins               Legend field number of bins
   --legendpos           Include legend at position given (argument to loc)""")
+    plothelp.write("""
+plate (plate / sample position plot; needs well_row+well_col and/or grid_col+grid_row columns):
+  plate -c FIELD [--agg mean|median|max|min|std|count|fraction > 0] [--plate auto|24|96]
+        [--drops N] [--noraster] [--cmin X] [--cmax X] [-t TITLE] [--datashown raw|filtered]""")
     parser=argparse.ArgumentParser(description="""Command line interface for plotting. Group, filter, sort, and partition\noptions are available, and if partitions are given then output is saved for\neach partition separately. This script supports subplots, so each plot must be\nspecified with --plot/-p and the argument to plot must be quoted to be read in\nas a single string. The argument to plot specifies all the options for the\ngiven plot.""",epilog=plothelp.getvalue().replace("usage:",""),formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-p','--plot',action='append',default=[],help='Add a plot to the figure, has a single argument (use quotes) to be parsed on its own, see bottom of help text for options')
     parser.add_argument('-r','--rows',default=None,type=int,help="The number of rows in the figure. Defaults to rows in config if more than one plot provided. You should specify this if you start using prowspan and pcolspan in plots.")
@@ -412,9 +447,11 @@ Plot Argument Descriptions:
         args.figwidth=300*args.cols
     if args.figheight is None:
         args.figheight=300*args.rows
+    app = QApplication.instance() or QApplication(sys.argv)
     qFig=MyFigure(flags=Qt.Window)
+    qFig.alwaysDraw = args.save is not None
     qFig.setAttribute(Qt.WA_DeleteOnClose)
-    qFig.resize(args.figwidth,args.figheight)
+    qFig.resize(int(args.figwidth),int(args.figheight))
     qFig.fig.set_size_inches(args.figwidth/qFig.fig.dpi,args.figheight/qFig.fig.dpi)
     args.gs=matplotlib.gridspec.GridSpec(args.rows,args.cols,left=args.left,right=args.right,bottom=args.bottom,\
                                         top=args.top,wspace=args.wspace,hspace=args.hspace)
@@ -433,6 +470,8 @@ Plot Argument Descriptions:
             imageh5(model,qFig,args,i,p)
         elif p.startswith("aggregate"):
             aggplot(model,qFig,args,i,p)
+        elif p.startswith("plate"):
+            plate(model,qFig,args,i,p)
         else:
             print("Unrecognized plot string: ",p)
 
@@ -450,7 +489,6 @@ Plot Argument Descriptions:
         model.saveByPartitions(args,saveFigByPartitions,partitions,False,False)
 
     else:
-        app = QApplication(sys.argv)
         qFig.show()
         r= app.exec_()
         app.deleteLater()

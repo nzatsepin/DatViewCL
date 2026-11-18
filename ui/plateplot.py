@@ -83,6 +83,17 @@ class PlateLayout:
         drop = int(within // self.dropw)
         return r, c, drop, int(within - drop * self.dropw), int(cy - r * self.wellh)
 
+    def regionMask(self):
+        """1 inside drop areas, 0 in the gaps between drops and wells."""
+        m = np.zeros((self.H, self.W))
+        for r in range(self.nrows):
+            for c in range(self.ncols):
+                for d in range(self.ndrops):
+                    x0 = c * self.wellw + d * self.dropw
+                    y0 = r * self.wellh
+                    m[y0:y0 + self.gy, x0:x0 + self.gx] = 1
+        return m
+
     def outlines(self):
         """Line segments around each well (and drop when drops are wider than one cell)."""
         segs = []
@@ -112,6 +123,8 @@ class MyPlatePlot(MyPlot):
         self.lay = layout
         self.img = None
         self.cnt = None
+        self.clim = (None, None)
+        self.fixedClim = None
 
         # Selection works on cell-centre coordinates, through filters on derived arrays
         self.cx = layout.x + 0.5
@@ -124,8 +137,6 @@ class MyPlatePlot(MyPlot):
         self.listen(self.model.filterModelChange, self.onFilterModelChange)
 
         self.sel = Rectangle((0, 0), 0, 0, color='r', fill=False, linewidth=1.5)
-        self.drawBoth.setVisible(False)
-        self.drawSelection.setChecked(True)
         self.plt.set_xlim(0, layout.W)
         self.plt.set_ylim(layout.H, 0)
         self.onFilterChange()
@@ -148,11 +159,11 @@ class MyPlatePlot(MyPlot):
         self.registerFilters()
         self.onFilterChange()
 
-    def aggregate(self):
-        """Per-cell statistic of self.field over the rows currently drawn."""
+    def aggregate(self, selected):
+        """Per-cell statistic of self.field over all rows, or over the selected rows only."""
         L = self.lay
         keep = np.isfinite(L.x)
-        if self.drawSelection.isChecked():
+        if selected:
             keep &= self.model.rootfilter.getKeep()
         keep &= self.model.partitionfilter.getKeep()
         v = self.model.data[self.model.datafield(self.field)][keep].astype(float)
@@ -187,11 +198,25 @@ class MyPlatePlot(MyPlot):
 
     def datadraw(self):
         L = self.lay
-        self.img, self.cnt = self.aggregate()
+        both = self.drawBoth.isChecked() and self.model.isFiltered()
+        layers = [(False, 0.3), (True, 1.0)] if both else [(self.drawSelection.isChecked(), 1.0)]
+        # light grey where a drop has no data, white between wells and drops
+        region = np.ma.masked_equal(L.regionMask(), 0)
+        self.plt.imshow(region, cmap=get_cmap("Greys"), vmin=0, vmax=10, origin="upper",
+                        extent=(0, L.W, L.H, 0), interpolation="nearest", aspect="equal")
         cmap = get_cmap(self.model.cfg.pixelcmap)
-        cmap = cmap.with_extremes(bad="#e8e8e8") if hasattr(cmap, "with_extremes") else cmap
-        im = self.plt.imshow(np.ma.masked_invalid(self.img), cmap=cmap, origin="upper",
-                             extent=(0, L.W, L.H, 0), interpolation="nearest", aspect="equal")
+        cmap = cmap.with_extremes(bad=(0, 0, 0, 0)) if hasattr(cmap, "with_extremes") else cmap
+        if self.fixedClim is None:
+            # colour scale from all rows, so it does not jump when the selection changes
+            full, _ = self.aggregate(False)
+            self.fixedClim = (np.nanmin(full), np.nanmax(full)) if np.isfinite(full).any() else (0, 1)
+        vmin = self.clim[0] if self.clim[0] is not None else self.fixedClim[0]
+        vmax = self.clim[1] if self.clim[1] is not None else self.fixedClim[1]
+        for selected, alpha in layers:
+            self.img, self.cnt = self.aggregate(selected)
+            im = self.plt.imshow(np.ma.masked_invalid(self.img), cmap=cmap, origin="upper", alpha=alpha,
+                                 extent=(0, L.W, L.H, 0), interpolation="nearest", aspect="equal",
+                                 vmin=vmin, vmax=vmax)
         self.plt.add_collection(LineCollection(L.outlines(), colors="0.35", linewidths=0.8))
         if self.cb is None:
             self.cb = self.fig.colorbar(im, ax=self.plt)

@@ -237,6 +237,9 @@ class MyPlot(QObject):
         if self.detached:
             return
         canvas=self.parent()
+        if getattr(canvas,'alwaysDraw',False):
+            self.mydraw()   # off-screen figure (datplot.py --save): draw immediately
+            return
         if canvas is None or not canvas.isVisible():
             self.dirty=True
             return

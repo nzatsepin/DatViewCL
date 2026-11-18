@@ -59,6 +59,7 @@ class DataModel(QObject):
         self.cmparray=None
         self._filtered=None
         self._keepcount=None
+        self.derived={}   # per-row arrays computed by plots (e.g. plate plot coordinates)
         
         if filename.endswith(".npz"):
             self.loadNumpy(filename)
@@ -408,6 +409,7 @@ class DataModel(QObject):
             valid=values[np.isfinite(values)]
             lo=float(np.min(valid))-1 if len(valid) else -1
             hi=float(np.max(valid))+1 if len(valid) else 1
+            self.derived[name]=values
             f=BetweenFilter(lo,hi,values,name)
             f.setActive(False)
             self.addFilter(f)
@@ -420,10 +422,17 @@ class DataModel(QObject):
         if not self.internalFilterChanges:
             self.filterchange.emit()
 
+    def _values(self,field):
+        if field in self.derived:
+            v=self.derived[field]
+            return v[np.isfinite(v)]
+        return self.data[self.datafield(field)]
+
     def fieldmin(self,field):
-        field=self.datafield(field)
+        if field not in self.derived:
+            field=self.datafield(field)
         if field not in self.mincache:
-            valid = self.data[field]
+            valid = self._values(field)
             valid = valid[valid != -1]
             if len(valid):
                 self.mincache[field]=np.min(valid)
@@ -432,15 +441,19 @@ class DataModel(QObject):
         return self.mincache[field]
 
     def trueFieldMin(self,field):
-        field=self.datafield(field)
+        if field not in self.derived:
+            field=self.datafield(field)
         if field not in self.tmincache:
-            self.tmincache[field]=np.min(self.data[field])
+            v=self._values(field)
+            self.tmincache[field]=np.min(v) if len(v) else -1
         return self.tmincache[field]
 
     def fieldmax(self,field):
-        field=self.datafield(field)
+        if field not in self.derived:
+            field=self.datafield(field)
         if field not in self.maxcache:
-            self.maxcache[field]=np.max(self.data[field])
+            v=self._values(field)
+            self.maxcache[field]=np.max(v) if len(v) else -1
         return self.maxcache[field]
 
 #########################################

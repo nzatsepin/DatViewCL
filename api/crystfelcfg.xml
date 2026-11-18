@@ -94,6 +94,8 @@
     <field nm="pos_x_um" prettyname="Sample X (um)" />
     <field nm="pos_y_um" prettyname="Sample Y (um)" />
     <field nm="plate"    prettyname="Plate" dtype="U50" fmt="%s"/>
+    <field nm="plate_x"  prettyname="Plate Plot Selection (x)" />
+    <field nm="plate_y"  prettyname="Plate Plot Selection (y)" /> <!-- selection filters of the plate plot, not table columns -->
 
     <!-- DECTRIS EIGER master file metadata (datgen.py –eiger) -->
     <field nm="/entry/instrument/detector/detector_distance" prettyname="Detector Distance (m)" />
