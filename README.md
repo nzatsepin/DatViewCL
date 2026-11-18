@@ -14,7 +14,7 @@ Python ≥ 3.9 with:
 pip install -r requirements.txt
 ```
 
-`numpy scipy matplotlib h5py hdf5plugin lxml pyqtgraph PyQt5 pandas`. You need `hdf5plugin` to read bitshuffle/LZ4-compressed EIGER data. `pandas` is optional but makes loading large tables much faster. To use the merge function, CrystFEL (0.10 or later) must be on `PATH`.
+`numpy scipy matplotlib h5py hdf5plugin lxml pyqtgraph PyQt5 pandas`. You need `hdf5plugin` to read bitshuffle/LZ4-compressed EIGER data. `pandas` is optional but makes loading large tables much faster. Two scripts have extra dependencies: `scripts/palxss.py` needs `tables`, and `scripts/venn3.py` needs `matplotlib-venn`. To use the merge function, CrystFEL (0.10 or later) must be on `PATH`.
 
 ## Quick start
 
