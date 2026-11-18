@@ -121,8 +121,8 @@ def pixel_maps_for_image_view(geometry_filename):
     m = 2 * int(max(abs(x.max()), abs(x.min()))) + 2
 
     # convert y x values to i j values
-    i = numpy.array(y, dtype=numpy.int) + n//2 - 1
-    j = numpy.array(x, dtype=numpy.int) + m//2 - 1
+    i = numpy.array(y, dtype=int) + n//2 - 1
+    j = numpy.array(x, dtype=int) + m//2 - 1
 
     yx = (i.flatten(), j.flatten())
     img_shape = (n, m)

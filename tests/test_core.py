@@ -175,3 +175,14 @@ def test_h5_fields_scalar_array_missing(tmp_path):
     assert np.allclose(d["/entry/instrument/detector/detector_distance"], 0.2)
     assert np.allclose(d["/entry/sample/goniometer/omega"], np.arange(5) * 0.5)
     assert (d["/entry/instrument/detector/beam_center_x"] == -1).all()
+
+
+def test_viewer_reads_peaks_and_reflections(tmp_path):
+    from api.datamodel import DataModel
+    m = DataModel(make_dat(tmp_path))
+    for row in range(len(m.data)):
+        px, py = m.streamPeaks(row)
+        assert len(px) == m.data["npeak"][row]
+        if m.data["multi"][row] > 0:
+            rx, ry, hkl = m.streamReflections(row)
+            assert len(rx) == m.data["nref"][row] and len(hkl) == len(rx)
