@@ -35,6 +35,7 @@ class ModelConfig:
         self.scattermarker='o'
         self.scatterlinewidth=0
         self.scattersize=4
+        self.scatterRasterThreshold=50000
         self.histAlwaysMask0=True
         self.playtime=1000
         self.imageH5paths=["/entry_1/data_1/data","/data/data"]
@@ -130,6 +131,8 @@ class ModelConfig:
                 self.scattermarker=child.text
             if child.tag == "scattersize" and child.text:
                 self.scattersize=int(child.text)
+            if child.tag == "scatterRasterThreshold" and child.text:
+                self.scatterRasterThreshold=int(child.text)
             if child.tag == "histperrow" and child.text:
                 self.histperrow=int(child.text)
             if child.tag == "hist1Dbins" and child.text:

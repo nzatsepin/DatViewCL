@@ -25,13 +25,20 @@ parser.add_argument('--partmin',default=[],nargs='+',type=float,help='Set the mi
 parser.add_argument('--partmax',default=[],nargs='+',type=float,help='Set the maximum of the range to be partitioned. Accepts multiple arguments, one for each field. Unspecified arguments default to None')
 parser.add_argument('--partition',default=None,nargs='+',help='Field name(s) to partition on. Partitioning only occurs if this is provided, otherwise partnum, partmin, and partmax are not used. Partition names appended to outfile as outfile_nm')
 
+parser.add_argument('--merge',default=None,metavar='CMD',
+                    help='merge the selection by piping it to a CrystFEL program instead of writing a file, e.g. '
+                         '--merge "process_hkl -y 2/m -o sel.hkl" or --merge "partialator -y 2/m -o sel.hkl --model=unity". '
+                         'With partitions, one merge is run per partition and the partition name is added to the -o name.')
+
 parser.add_argument('infile',help='the dat file (or a .npz file output from datview/datexport)')
-parser.add_argument('outfile',help='the output file, format automatically determined by line ending')
+parser.add_argument('outfile',nargs='?',default=None,help='the output file, format automatically determined by line ending (not needed with --merge)')
 args=parser.parse_args()
+if args.outfile is None and args.merge is None:
+    parser.error('give an output file, or --merge')
 
 
 model=DataModel(args.infile,args.group,cfg=ModelConfig(args.cfg))
-if args.outfile.endswith(".npz"):
+if args.outfile is not None and args.outfile.endswith(".npz"):
     model.saveAllNumpy(args.outfile)
     exit()
 
@@ -48,7 +55,13 @@ partitions=None
 if args.partition is not None:
     partitions=model.partitionMulti(args.partition,args.partmin,args.partmax,args.partnum)
 
-if '.stream' in args.outfile:
+if args.merge is not None:
+    results=model.mergeByPartitions(args.merge,partitions)
+    failed=[k for k,rc in results.items() if rc != 0]
+    for k,rc in results.items():
+        print("merge %s: exit code %s"%(k or "selection",rc),file=sys.stderr)
+    sys.exit(1 if failed else 0)
+elif '.stream' in args.outfile:
     model.saveByPartitions(args.outfile, model.saveSelStream, partitions)
 elif '.lst' in args.outfile:
     model.saveByPartitions(args.outfile, model.saveSelLst, partitions)

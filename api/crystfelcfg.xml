@@ -161,6 +161,10 @@
   <scatterlinewidth>0</scatterlinewidth> <!-- linewidths parameter of matplotlib.pyplot.scatter -->
   <scattermarker>o</scattermarker> <!-- marker parameter of matplotlib.pyplot.scatter -->
   <scattersize>4</scattersize> <!-- s parameter of matplotlib.pyplot.scatter -->
+  <!-- Above this many points a scatter plot is drawn as an image at screen resolution (each pixel shows the
+       mean colour value of the points in it) and re-binned after zoom/pan. Much faster for large datasets;
+       selection, zoom and tooltips work as before. Set very large to always draw individual markers. -->
+  <scatterRasterThreshold>50000</scatterRasterThreshold>
 
   <!-- and for aggregated plots -->
   <aggmarker>o</aggmarker>

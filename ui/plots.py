@@ -321,9 +321,9 @@ class MyPlot(QObject):
         pass
 
     def mydraw(self,keeplimits=True):
-        if keeplimits:
-            xlim = self.plt.get_xlim()
-            ylim = self.plt.get_ylim()
+        xlim = self.plt.get_xlim()
+        ylim = self.plt.get_ylim()
+        self.viewlim=(xlim,ylim)  # limits before clearing, for plots that bin to the view
         self.plt.cla()
         self.datadraw()
         if self.sel is not None:
@@ -713,15 +713,24 @@ class MyScatter(MyPlot):
             if self.vmax is None:
                 self.vmax=self.model.fieldmax(self.cfield)
 
+        layers=[]
         if self.model.isFiltered() and self.drawBoth.isChecked():
-            self.plt.scatter(self.model.datacol(self.xfield),self.model.datacol(self.yfield),c=cAll,alpha=0.3,cmap=cm, vmin=self.vmin,vmax=self.vmax,marker=marker,linewidths=self.model.cfg.scatterlinewidth,s=self.model.cfg.scattersize)
-            sc=self.plt.scatter(self.model.datacol(self.xfield,filtered=True),self.model.datacol(self.yfield,filtered=True),c=cFiltered,cmap=cm,vmin=self.vmin,vmax=self.vmax,marker=marker,linewidths=self.model.cfg.scatterlinewidth,s=self.model.cfg.scattersize)
+            layers=[(False,cAll,0.3),(True,cFiltered,1)]
         elif self.drawSelection.isChecked():
-            sc=self.plt.scatter(self.model.datacol(self.xfield,filtered=True),self.model.datacol(self.yfield,filtered=True),c=cFiltered,cmap=cm,vmin=self.vmin,vmax=self.vmax,marker=marker,linewidths=self.model.cfg.scatterlinewidth,s=self.model.cfg.scattersize)
+            layers=[(True,cFiltered,1)]
         else:
-            sc=self.plt.scatter(self.model.datacol(self.xfield),self.model.datacol(self.yfield),c=cAll,cmap=cm,
-vmin=self.vmin,vmax=self.vmax,marker=marker,linewidths=self.model.cfg.scatterlinewidth,s=self.model.cfg.scattersize)
-
+            layers=[(False,cAll,1)]
+        npoints=len(self.model.datacol(self.xfield,filtered=layers[0][0]))
+        self.raster = npoints > self.model.cfg.scatterRasterThreshold
+        sc=None
+        for filtered,c,alpha in layers:
+            x=self.model.datacol(self.xfield,filtered=filtered)
+            y=self.model.datacol(self.yfield,filtered=filtered)
+            if self.raster:
+                sc=self.rasterScatter(x,y,None if self.cfield is None else c,alpha,cm)
+            else:
+                sc=self.plt.scatter(x,y,c=c,alpha=alpha if alpha < 1 else None,cmap=cm,vmin=self.vmin,vmax=self.vmax,marker=marker,
+                                    linewidths=self.model.cfg.scatterlinewidth,s=self.model.cfg.scattersize)
 
         self.plt.set_xlabel(self.model.prettyname(self.xfield))
         self.plt.set_ylabel(self.model.prettyname(self.yfield))
@@ -732,6 +741,39 @@ vmin=self.vmin,vmax=self.vmax,marker=marker,linewidths=self.model.cfg.scatterlin
 
         self.xlabels(self.model,self.xfield)
         self.ylabels(self.model,self.yfield)
+
+    def rasterScatter(self,x,y,c,alpha,cmap):
+        """Scatter drawn as an image binned at about two screen pixels per bin within the
+        current view: empty bins are transparent, others show the mean colour value (or black
+        without a colour field). Drawing cost no longer grows with the number of points."""
+        (x0,x1),(y0,y1)=self.viewlim
+        bbox=self.plt.get_window_extent()
+        nx=max(int(bbox.width/2),40)
+        ny=max(int(bbox.height/2),40)
+        rng=[sorted((x0,x1)),sorted((y0,y1))]
+        cnt,xe,ye=np.histogram2d(x,y,bins=[nx,ny],range=rng)
+        with np.errstate(invalid='ignore',divide='ignore'):
+            if c is None:
+                img=np.where(cnt>0,1.0,np.nan)
+                cmap=get_cmap('Greys')
+                vmin,vmax=0,1
+            else:
+                tot,_,_=np.histogram2d(x,y,bins=[xe,ye],weights=np.asarray(c,dtype=float))
+                img=np.where(cnt>0,tot/cnt,np.nan)
+                vmin,vmax=self.vmin,self.vmax
+        return self.plt.imshow(np.ma.masked_invalid(img.T),origin='lower',extent=(xe[0],xe[-1],ye[0],ye[-1]),
+                               aspect='auto',interpolation='nearest',cmap=cmap,vmin=vmin,vmax=vmax,alpha=alpha)
+
+    def onScroll(self,event):
+        MyPlot.onScroll(self,event)
+        if getattr(self,'raster',False):
+            self.requestDraw()  # re-bin at the new zoom
+
+    def onRelease(self,event):
+        panning=self.pan is not None
+        MyPlot.onRelease(self,event)
+        if panning and getattr(self,'raster',False):
+            self.requestDraw()
 
     def onReset(self,event):
         xrange=(self.model.fieldmin(self.xfield),self.model.fieldmax(self.xfield))

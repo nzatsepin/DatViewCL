@@ -99,5 +99,5 @@ plt.title(args.title)
 if args.save is None:
   plt.show()
 else:
-  plt.savefig(args.save, ext="png")
+  plt.savefig(args.save, format="png")
 

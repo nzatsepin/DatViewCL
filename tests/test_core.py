@@ -151,8 +151,8 @@ def test_positions_and_grid(tmp_path):
     d = read(make_dat(tmp_path, positions=True))
     r = d[d.event == 5].iloc[0]                    # second raster row, snake: reversed
     assert (r["well"], r["drop"], r["grid_col"], r["grid_row"]) == ("A1", 1, 4, 1)
-    r = d[d.event == 59].iloc[0]
-    assert tuple(r[["well", "well_row", "well_col", "drop", "grid_col", "grid_row"]]) == ("B1", 2, 1, 2, 0, 1)
+    r = d[d.event == 58].iloc[0]
+    assert tuple(r[["well", "well_row", "well_col", "drop", "grid_col", "grid_row"]]) == ("B1", 2, 1, 2, 1, 1)
 
 
 def test_grid_option_without_table(tmp_path):

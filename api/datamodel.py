@@ -23,6 +23,15 @@ except ImportError:
     pd = None
 
 
+def _releaseFreedMemory():
+    """Ask glibc to return freed parser buffers to the OS (Linux only; no-op elsewhere)."""
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except (OSError,AttributeError):
+        pass
+
+
 class DataModel(QObject):
     filterchange=pyqtSignal()
     sortchange=pyqtSignal()
@@ -116,9 +125,9 @@ class DataModel(QObject):
             if c == DataModel.sortColumnName:
                 self.data[c]=np.arange(n)
             elif c in self.strcols:
-                lbls,inverse=np.unique(columns[c].astype(str),return_inverse=True)
-                self.digitized[c]=np.array(lbls.tolist())
-                self.data[c]=inverse.ravel()
+                lbls,inverse=self._digitize(columns[c])
+                self.digitized[c]=lbls
+                self.data[c]=inverse
             else:
                 raw=columns[c]
                 converted = c in self.cfg.invert or self.cfg.multvalue(c) != 1
@@ -131,6 +140,7 @@ class DataModel(QObject):
                 if self.cfg.multvalue(c) != 1:
                     self.data[c][self.data[c]!=-1]*=self.cfg.multvalue(c)
             columns[c]=None # release the parsed text column as soon as it is copied
+        _releaseFreedMemory()
 
     def _readColumns(self,filename):
         """Parse the table body into a dict of 1D arrays, one per column.
@@ -142,9 +152,11 @@ class DataModel(QObject):
         strcols=sorted(self.strcols)
         if pd is not None:
             sep=self.cfg.sep if self.cfg.sep is not None else r"\s+"
+            # Text columns are parsed straight into categories, so each distinct string
+            # (e.g. a file path shared by thousands of frames) is stored once.
             df=pd.read_csv(filename,sep=sep,header=None,skiprows=1,names=self.cols,
                            usecols=range(len(self.cols)),index_col=False,
-                           dtype={c:str for c in strcols},engine="c")
+                           dtype={c:"category" for c in strcols},engine="c")
             out={}
             for c in self.cols:
                 col=df[c]
@@ -152,8 +164,9 @@ class DataModel(QObject):
                     # Text in a column not declared as a string in the config (e.g. a plate
                     # well label from a positions table): treat it as categorical.
                     self.strcols.add(c)
+                    col=col.astype("category")
                 if c in self.strcols:
-                    out[c]=col.astype(str).to_numpy(dtype=str) if col.dtype != object else col.fillna("").to_numpy(dtype=str)
+                    out[c]=col.cat.rename_categories([str(x) for x in col.cat.categories])
                 else:
                     out[c]=self._numeric(col.to_numpy(),self.cfg.dtype(c))
                 del df[c]
@@ -164,6 +177,23 @@ class DataModel(QObject):
         arr=np.loadtxt(filename,skiprows=1,delimiter=self.cfg.sep,usecols=range(len(self.cols)),ndmin=1,
                        dtype={'names':tuple(self.cols),'formats':tuple(dtypes)})
         return {c:arr[c] for c in self.cols}
+
+    @staticmethod
+    def _digitize(col):
+        """Sorted unique labels and the integer code of each row."""
+        if pd is not None and isinstance(col,pd.Series) and hasattr(col,"cat"):
+            cats=np.asarray(col.cat.categories,dtype=str)
+            order=np.argsort(cats,kind="stable")
+            remap=np.empty(len(cats),dtype=np.int64)
+            remap[order]=np.arange(len(cats))
+            codes=col.cat.codes.to_numpy()
+            lbls=cats[order]
+            if (codes < 0).any():                 # empty fields -> ""
+                lbls=np.append(lbls,"")
+                remap=np.append(remap,len(lbls)-1)
+            return lbls,remap[codes]
+        lbls,inverse=np.unique(np.asarray(col).astype(str),return_inverse=True)
+        return np.array(lbls.tolist()),inverse.ravel()
 
     @staticmethod
     def _numeric(values,dtype):

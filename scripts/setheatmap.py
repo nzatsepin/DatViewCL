@@ -69,6 +69,6 @@ for i in range(len(sets)):
 if args.save is None:
   plt.show()
 else:
-  plt.savefig(args.save, ext=args.ext,dpi=args.dpi)
+  plt.savefig(args.save, format=args.ext,dpi=args.dpi)
 
 

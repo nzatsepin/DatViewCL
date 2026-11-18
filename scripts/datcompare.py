@@ -48,12 +48,12 @@ digitized={}
 for c in cols:
     dtypes.append(cfg.dtype(c))
     if 'U' in dtypes[-1]:
-        convert[cols.index(c)]=np.lib.npyio.asstr
+        convert[cols.index(c)]=str
         todigitize.append(c)
 rdatalst=[]
 rows=[0]
 for infile in args.infiles:
-    rdatalst.append(np.loadtxt(infile,skiprows=1,converters=convert,delimiter=cfg.sep,
+    rdatalst.append(np.loadtxt(infile,skiprows=1,delimiter=cfg.sep,usecols=range(len(cols)),ndmin=1,
                      dtype={'names':tuple(cols),'formats':tuple(dtypes)}))
     rows.append(len(rdatalst[-1])+rows[-1])
 
