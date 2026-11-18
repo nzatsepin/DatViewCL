@@ -59,8 +59,10 @@ class PlateLayout:
         self.gy = int(np.max(gr[ok])) + 1 if hasgrid and ok.any() else 1
         ok &= (wr <= self.nrows) & (wc <= self.ncols) & (dr <= self.ndrops)
 
-        self.gapd = 1 if self.gx > 1 else 0          # between drops
-        self.gapw = 2 if self.gx > 1 else 0          # between wells
+        single = self.nrows == 1 and self.ncols == 1 and self.ndrops == 1
+        self.gapd = 1 if self.gx > 1 and not single else 0          # between drops
+        self.gapw = 2 if self.gx > 1 and not single else 0          # between wells
+        self.single = single
         self.dropw = self.gx + self.gapd
         self.wellw = self.ndrops * self.dropw + self.gapw
         self.wellh = self.gy + self.gapw
@@ -204,7 +206,7 @@ class MyPlatePlot(MyPlot):
         region = np.ma.masked_equal(L.regionMask(), 0)
         self.plt.imshow(region, cmap=get_cmap("Greys"), vmin=0, vmax=10, origin="upper",
                         extent=(0, L.W, L.H, 0), interpolation="nearest", aspect="equal")
-        cmap = get_cmap(self.model.cfg.pixelcmap)
+        cmap = get_cmap(self.model.cfg.platecmap)
         cmap = cmap.with_extremes(bad=(0, 0, 0, 0)) if hasattr(cmap, "with_extremes") else cmap
         if self.fixedClim is None:
             # colour scale from all rows, so it does not jump when the selection changes
@@ -222,10 +224,21 @@ class MyPlatePlot(MyPlot):
             self.cb = self.fig.colorbar(im, ax=self.plt)
         else:
             self.cb.update_normal(im)
-        self.plt.set_xticks([c * L.wellw + (L.ndrops * L.dropw - L.gapd) / 2 for c in range(L.ncols)])
-        self.plt.set_xticklabels([str(c + 1) for c in range(L.ncols)])
-        self.plt.set_yticks([r * L.wellh + L.gy / 2 for r in range(L.nrows)])
-        self.plt.set_yticklabels([chr(ord("A") + r) if L.haswell else str(r + 1) for r in range(L.nrows)])
+        if L.single:
+            # bare raster: label grid columns/rows (0-based, as in grid_col/grid_row)
+            step = max(1, L.gx // 10)
+            self.plt.set_xticks([i + 0.5 for i in range(0, L.gx, step)])
+            self.plt.set_xticklabels([str(i) for i in range(0, L.gx, step)])
+            step = max(1, L.gy // 10)
+            self.plt.set_yticks([i + 0.5 for i in range(0, L.gy, step)])
+            self.plt.set_yticklabels([str(i) for i in range(0, L.gy, step)])
+            self.plt.set_xlabel("grid column")
+            self.plt.set_ylabel("grid row")
+        else:
+            self.plt.set_xticks([c * L.wellw + (L.ndrops * L.dropw - L.gapd) / 2 for c in range(L.ncols)])
+            self.plt.set_xticklabels([str(c + 1) for c in range(L.ncols)])
+            self.plt.set_yticks([r * L.wellh + L.gy / 2 for r in range(L.nrows)])
+            self.plt.set_yticklabels([chr(ord("A") + r) if L.haswell else str(r + 1) for r in range(L.nrows)])
         self.plt.tick_params(length=0)
         self.plt.set_title("%s of %s" % (self.agg, self.model.prettyname(self.field)))
 

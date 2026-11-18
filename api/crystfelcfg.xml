@@ -158,6 +158,7 @@
   <scattercmap>jet</scattercmap>
   <hist2dcmap>jet</hist2dcmap>
   <pixelcmap>jet</pixelcmap>
+  <platecmap>viridis</platecmap> <!-- colour map of the plate / sample position plot -->
 
   <!-- More matplotlib options specifically for scatterplots. Note that the color-by option affects only fill color, so be aware that not all markers are fillable. The default options here remove the line width and make the points small assuming a large number of points -->
   <scatterlinewidth>0</scatterlinewidth> <!-- linewidths parameter of matplotlib.pyplot.scatter -->
