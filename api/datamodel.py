@@ -1,6 +1,8 @@
 # datview/api/datamodel.py
 # Main api of program. DataModel contains the data and filters, and manages all load and save options. 
 # Author Natasha Stander
+# 2026 update: lower memory loader (no duplicate raw table), lazy selection copy,
+# binary stream export and direct merging via api.streamio.
 
 try:
     from PyQt5.QtCore import QObject,pyqtSignal
@@ -12,7 +14,13 @@ from .filters import *
 from .groupmgr import GroupMgr
 import lxml.etree as ElementTree
 from .modelcfg import ModelConfig
+from . import streamio
 import sys
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 
 class DataModel(QObject):
@@ -35,17 +43,19 @@ class DataModel(QObject):
         self.cols=[]
         self.hdrline=None
         self.digitized={}
-        self.rdata = None
+        self.rawcols={}   # original values of columns changed on load (mult/invert), for dat export
+        self.rawfmt={}    # string columns: output width not needed, kept for completeness
         self.data = None
         self.npfile = None
         self.cmparray=None
+        self._filtered=None
+        self._keepcount=None
         
         if filename.endswith(".npz"):
             self.loadNumpy(filename)
         else:
             self.loadtxt(filename)
 
-        self.filtered=self.data
         self.rootfilter=AndFilter(self.data.shape) # Includes filters, partitions, flags
         self.topfilter=AndFilter(self.data.shape) # Top of filters Tree
         self.rootfilter.addChild(self.topfilter)
@@ -73,51 +83,94 @@ class DataModel(QObject):
 
 
     def loadtxt(self,filename):
-        """Called from __init__, not intended to be called by users"""
+        """Called from __init__, not intended to be called by users.
+
+        String columns (file paths, indexing method, ...) are stored once, as integer codes
+        into a sorted label array, instead of as fixed-width unicode in a second copy of the
+        table. Only columns altered on load (mult/invert in the config) keep their original
+        values, so a re-exported dat file is identical to the input.
+        """
         with open(filename) as dfile:
             self.hdrline=dfile.readline().strip()
-            if self.hdrline.startswith("CrystFEL stream format"):
-                print("Usage: This input file (%s) looks like a CrystFEL stream file. It should be a dat file. Please run \n\tdatgen.py -o output.dat %s\nand run this program on the output."%(filename,filename),file=sys.stderr)
-                sys.exit()
-            self.cols=self.hdrline.split(self.cfg.sep)
-            if self.cfg.commentchar is not None:
-                self.cols[0] = self.cols[0].replace(cfg.commentchar, "")
-        dtypes=[]
-        convert={}
-        todigitize=[]
-        for c in self.cols:
-            dtypes.append(self.cfg.dtype(c))
-            if 'U' in dtypes[-1]:
-                convert[self.cols.index(c)]=np.lib.npyio.asstr
-                todigitize.append(c)
-        self.rdata=np.loadtxt(filename,skiprows=1,converters=convert,delimiter=self.cfg.sep,
-                             dtype={'names':tuple(self.cols),'formats':tuple(dtypes)})
-        # We may have string inputs, even with grouping, and it will simplify all the other code
-        # if at this point we digitize any string inputs so other code will only ever see numbers
-        # and the labels are obtained through the common interface used for grouping anyway. Also,
-        # apply conversions in the configuration file.
+        if self.hdrline.startswith("CrystFEL stream format"):
+            print("Usage: This input file (%s) looks like a CrystFEL stream file. It should be a dat file. Please run \n\tdatgen.py -o output.dat %s\nand run this program on the output."%(filename,filename),file=sys.stderr)
+            sys.exit()
+        self.cols=self.hdrline.split(self.cfg.sep)
+        if self.cfg.commentchar is not None:
+            self.cols[0] = self.cols[0].replace(self.cfg.commentchar, "").strip()
+            if self.cols[0] == "":
+                del self.cols[0]
+        self.hdrline=(self.cfg.sep or "\t").join(self.cols)
+
+        self.strcols={c for c in self.cols if 'U' in self.cfg.dtype(c)}
+        columns=self._readColumns(filename)
+
+        n=len(columns[self.cols[0]]) if self.cols else 0
         dtypes2=[]
-        for dtype in dtypes:
-            if 'U' in dtype:
-                dtypes2.append('i4')
-            else:
-                dtypes2.append(dtype)
+        for c in self.cols:
+            dtypes2.append('i4' if c in self.strcols else self.cfg.dtype(c))
         self.cols.append(DataModel.sortColumnName)
         dtypes2.append('u4')
-        self.data=np.empty(self.rdata.shape,dtype={'names':tuple(self.cols),'formats':tuple(dtypes2)})
+        self.data=np.empty(n,dtype={'names':tuple(self.cols),'formats':tuple(dtypes2)})
         for c in self.cols:
-            if c in todigitize:
-                lbls,inverse=np.unique(self.rdata[c],return_inverse=True)
+            if c == DataModel.sortColumnName:
+                self.data[c]=np.arange(n)
+            elif c in self.strcols:
+                lbls,inverse=np.unique(columns[c].astype(str),return_inverse=True)
                 self.digitized[c]=np.array(lbls.tolist())
-                self.data[c]=inverse
-            elif c == DataModel.sortColumnName:
-                self.data[c]=np.arange(len(self.rdata))
+                self.data[c]=inverse.ravel()
             else:
-                self.data[c]=self.rdata[c]
+                raw=columns[c]
+                converted = c in self.cfg.invert or self.cfg.multvalue(c) != 1
+                if converted:
+                    self.rawcols[c]=raw
+                self.data[c]=raw
                 if c in self.cfg.invert:
-                    self.data[c] = 1/self.data[c]
+                    with np.errstate(divide='ignore'):
+                        self.data[c] = 1/self.data[c]
                 if self.cfg.multvalue(c) != 1:
                     self.data[c][self.data[c]!=-1]*=self.cfg.multvalue(c)
+            columns[c]=None # release the parsed text column as soon as it is copied
+
+    def _readColumns(self,filename):
+        """Parse the table body into a dict of 1D arrays, one per column.
+
+        Uses pandas' C parser when available (several times faster than numpy.loadtxt on
+        large tables); falls back to numpy otherwise. Trailing separators written by older
+        datgen versions are tolerated.
+        """
+        strcols=sorted(self.strcols)
+        if pd is not None:
+            sep=self.cfg.sep if self.cfg.sep is not None else r"\s+"
+            df=pd.read_csv(filename,sep=sep,header=None,skiprows=1,names=self.cols,
+                           usecols=range(len(self.cols)),index_col=False,
+                           dtype={c:str for c in strcols},engine="c")
+            out={}
+            for c in self.cols:
+                col=df[c]
+                if c not in strcols and col.dtype == object:
+                    # Text in a column not declared as a string in the config (e.g. a plate
+                    # well label from a positions table): treat it as categorical.
+                    self.strcols.add(c)
+                if c in self.strcols:
+                    out[c]=col.astype(str).to_numpy(dtype=str) if col.dtype != object else col.fillna("").to_numpy(dtype=str)
+                else:
+                    out[c]=self._numeric(col.to_numpy(),self.cfg.dtype(c))
+                del df[c]
+            return out
+        dtypes=[]
+        for c in self.cols:
+            dtypes.append(self.cfg.dtype(c) if 'U' not in self.cfg.dtype(c) else 'U1024')
+        arr=np.loadtxt(filename,skiprows=1,delimiter=self.cfg.sep,usecols=range(len(self.cols)),ndmin=1,
+                       dtype={'names':tuple(self.cols),'formats':tuple(dtypes)})
+        return {c:arr[c] for c in self.cols}
+
+    @staticmethod
+    def _numeric(values,dtype):
+        try:
+            return values.astype(dtype)
+        except (ValueError,TypeError):
+            return np.asarray(values,dtype=float).astype(dtype)
 
     def loadNumpy(self,filename):
         self.npfile = np.load(filename)
@@ -127,6 +180,11 @@ class DataModel(QObject):
             self.digitized[dkey]=None
         if "cmparray" in self.npfile.keys():
             self.cmparray=self.npfile["cmparray"]
+        if "rawcolkeys" in self.npfile.keys():
+            for c in self.npfile["rawcolkeys"].tolist():
+                self.rawcols[c]=self.npfile["raw__"+c]
+        if "hdrline" in self.npfile.keys():
+            self.hdrline=str(self.npfile["hdrline"])
         
 
     def prettyname(self,field):
@@ -265,8 +323,21 @@ class DataModel(QObject):
 ###            Filtering              ###
 #########################################                
 
+    @property
+    def filtered(self):
+        """Selected rows as a structured array. Built on first use after each selection
+        change; plots do not use it, so dragging a selection no longer copies the table."""
+        if self._filtered is None:
+            self._filtered=self.data[self.rootfilter.getKeep()]
+        return self._filtered
+
+    def selectedCount(self):
+        if self._keepcount is None:
+            self._keepcount=int(np.count_nonzero(self.rootfilter.getKeep()))
+        return self._keepcount
+
     def isFiltered(self):
-        return np.count_nonzero(self.rootfilter.getKeep()) < len(self.data)
+        return self.selectedCount() < len(self.data)
 
     def addFilter(self,toAdd):
         self.topfilter.addChild(toAdd)
@@ -300,7 +371,8 @@ class DataModel(QObject):
         return self.selfilters[field]
 
     def applyFilters(self):
-        self.filtered=self.data[self.rootfilter.getKeep()]
+        self._filtered=None
+        self._keepcount=None
         if not self.internalFilterChanges:
             self.filterchange.emit()
 
@@ -473,7 +545,7 @@ class DataModel(QObject):
             if self.reverseSort:
                 outarr = np.flipud(outarr)
         self.data[DataModel.sortColumnName][outarr]=np.arange(len(self.data))
-        self.filtered=self.data[self.rootfilter.getKeep()]
+        self._filtered=None
         self.sortchange.emit()
 
     def outArrIndices(self,applyLimit=True):
@@ -507,36 +579,50 @@ class DataModel(QObject):
             function(fname)
 
 
-    def saveSelDat(self,fname):
-        formats=[]
-        if self.hasComparisons():
-            rdata=self.data
-            for c in self.cols:
-                formats.append(self.cfg.fmt(c))
-        else:
-            for c in self.cols:
-                if c != DataModel.sortColumnName:
-                    formats.append(self.cfg.fmt(c))
-            rdata = self.rdata
+    def rawColumn(self,c,rows):
+        """Original (as-loaded) values of column c for data rows `rows`, for dat export."""
+        if c in self.digitized and self.canAccessDigitized(c):
+            return self.digitized[c][self.data[c][rows]]
+        if c in self.rawcols:
+            return self.rawcols[c][rows]
+        if self.npfile is not None and "rdata" in self.npfile.keys(): # npz written by DatView <= 2019
+            return self.npfile["rdata"][c][rows]
+        return self.data[c][rows]
 
-        if rdata is None:
-            assert self.npfile is not None
-            rdata = self.npfile["rdata"]
-        outarr=rdata[self.rootfilter.getKeep()][self.outArrIndices()]
-        d='\t'
-        if self.cfg.sep is not None:
-            d=self.cfg.sep
-        hline = self.hdrline
-        if hline is None:
-            sep=self.cfg.sep
-            if sep is None:
-                sep = "\t"
-            
-            if self.cfg.commentchar is None:
-                hline = sep.join(rdata.dtype.names)
+    def selectedRows(self,applyLimit=True):
+        """Row indices into self.data for the current selection, in output order."""
+        return np.flatnonzero(self.rootfilter.getKeep())[self.outArrIndices(applyLimit)]
+
+    def saveSelDat(self,fname):
+        rows=self.selectedRows()
+        sep=self.cfg.sep if self.cfg.sep is not None else "\t"
+        if self.hasComparisons():
+            outcols=list(self.cols)
+            columns=[self.data[c][rows] for c in outcols]
+        else:
+            outcols=[c for c in self.cols if c != DataModel.sortColumnName]
+            columns=[self.rawColumn(c,rows) for c in outcols]
+        if self.hdrline is not None and not self.hasComparisons():
+            hline=self.hdrline
+        elif self.cfg.commentchar is None:
+            hline=sep.join(outcols)
+        else:
+            hline=sep.join((self.cfg.commentchar,*outcols))
+        text=[]
+        for c,col in zip(outcols,columns):
+            fmt=self.cfg.fmt(c)
+            if col.dtype.kind in "US":
+                text.append(col.astype(str))
             else:
-                hline = sep.join((self.cfg.commentchar,*rdata.dtype.names))          
-        np.savetxt(fname,outarr,fmt=formats,delimiter=d,header=hline,comments='')
+                text.append(np.char.mod(fmt,col))
+        with open(fname,'w') as fout:
+            fout.write(hline+"\n")
+            if len(rows):
+                lines=text[0]
+                for t in text[1:]:
+                    lines=np.char.add(np.char.add(lines,sep),t)
+                fout.write("\n".join(lines.tolist()))
+                fout.write("\n")
         print ("Wrote",fname)
 
     def canSaveLst(self):
@@ -544,73 +630,71 @@ class DataModel(QObject):
 
     def saveSelLst(self,fname):
         assert self.canSaveLst()
-        outarr=self.outArrIndices()
+        rows=self.selectedRows()
+        ifile=self.datafield('ifile')
+        hasevent='event' in self.cols
         with open(fname,'w') as fout:
-            for i in outarr:
-                if 'event' in self.cols and self.filtered['event'][i] != -1:
-                    fout.write('%s //%i\n'%(self.value('ifile',i) ,self.filtered['event'][i]))
+            for r in rows:
+                name=self.stringValue(ifile,self.data[ifile][r])
+                if hasevent and self.data['event'][r] != -1:
+                    fout.write('%s //%i\n'%(name,self.data['event'][r]))
                 else:
-                    fout.write('%s\n'%(self.value('ifile',i)))
+                    fout.write('%s\n'%name)
         print ("Wrote",fname)
 
     def canSaveStream(self):
         return ('sfile' in self.cols or ((GroupMgr.prefix+"sfile") in self.cols and self.groupmgr is not None)) \
                 and 'istart' in self.cols and 'cstart' in self.cols and 'cend' in self.cols
 
+    def streamRows(self,rows=None):
+        """(stream path, istart, iend, cstart, cend) for each selected row, in output order."""
+        if rows is None:
+            rows=self.selectedRows()
+        sfile=self.datafield('sfile')
+        paths=[self.stringValue(sfile,v) for v in self.data[sfile][rows]]
+        return zip(paths,self.data['istart'][rows],self.data['iend'][rows],
+                   self.data['cstart'][rows],self.data['cend'][rows])
+
     def saveSelStream(self,fname):
+        """Write the selection as a stream. Each crystal becomes its own chunk, so a subset
+        of the crystals on a multi-crystal frame can be exported."""
         assert self.canSaveStream()
-        # We could sort the filtered to read files in order, but keeping the order
-        # will automatically allow a sorting extension and sorted stream files are
-        # useful for programs that just have a start at and end after option to manipulate
-        # Also, until the sorting option is implemented, the default order is in order of appearance
-        # in stream files.
-
-        # For now, don't bother caching open files because operating systems have limits on the # of 
-        # open files, and it's probably faster to open and close files then to guess which files to
-        # keep open
-        curfile=None
-        curfileName=None
-        needheader=True
-
-        with open(fname,'w') as fout:
-            for i in self.outArrIndices():
-                streamfile=self.value('sfile',i)
-                if streamfile != curfileName:
-                    if curfile is not None:
-                        curfile.close()
-                    curfileName=streamfile
-                    curfile=open(streamfile,'r')
-                if needheader:
-                    curfile.seek(0)
-                    line=curfile.readline()
-                    while line and line != '----- Begin chunk -----\n':
-                        fout.write(line)
-                        line=curfile.readline()
-                    needheader=False
-                curfile.seek(self.filtered['istart'][i])
-                if self.filtered['cstart'][i] < 0:
-                    fout.write(curfile.read(self.filtered['iend'][i] - self.filtered['istart'][i]))
-                else:
-                    # This may be a multicrystal chunk and we only want the specific crystal
-                    # asked for. So, write out lines until a begin crystal line, then jump to
-                    # the correct crystal and output that.
-                    line=curfile.readline()
-                    while line and line != '--- Begin crystal\n':
-                        fout.write(line)
-                        line=curfile.readline()
-                    curfile.seek(self.filtered['cstart'][i])
-                    fout.write(curfile.read(self.filtered['cend'][i] - self.filtered['cstart'][i]))
-                    fout.write('----- End chunk -----\n') # Add on the end chunk line
-        if curfile is not None:
-            curfile.close()
+        streamio.write_selection(self.streamRows(),fname)
         print ("Wrote",fname)
+
+    def pipeSelStream(self,cmd,progress=None):
+        """Feed the selection to process_hkl/partialator on stdin; no stream file is written.
+        Returns the program's exit code (None if aborted through `progress`)."""
+        assert self.canSaveStream()
+        return streamio.pipe_selection(self.streamRows(),cmd,progress)
+
+    def mergeByPartitions(self,cmd,partitions=None,progress=None):
+        """Run one merge per partition, suffixing the -o output name with the partition name."""
+        results={}
+        if partitions is None:
+            results[""]=self.pipeSelStream(cmd,progress)
+            return results
+        previous=self.partitionfilter.getKeep()
+        self.internalFilterChanges=True
+        try:
+            for k,v in sorted(partitions.items()):
+                self.setPartition(v)
+                if self.selectedCount():
+                    results[k]=self.pipeSelStream(streamio.resolve_output_name(cmd,k),progress)
+        finally:
+            self.setPartition(previous)
+            self.internalFilterChanges=False
+        return results
 
     def canSaveNumpy(self):
         return self.npfile is None # Don't resave a numpy file as a numpy file. Too complicated.
 
     def saveAllNumpy(self,fname):
         assert self.canSaveNumpy()
-        np.savez_compressed(fname,data=self.data,rdata=self.rdata,digitizedkeys=np.asarray(sorted(self.digitized.keys())),**self.digitized)
+        raw={"raw__"+c:v for c,v in self.rawcols.items()}
+        np.savez_compressed(fname,data=self.data,digitizedkeys=np.asarray(sorted(self.digitized.keys())),
+                            rawcolkeys=np.asarray(sorted(self.rawcols.keys()),dtype=str),
+                            hdrline=np.asarray(self.hdrline or ""),**raw,**self.digitized)
 
     def saveFilters(self,fname):
         root=ElementTree.Element("filters")
@@ -642,7 +726,7 @@ class DataModel(QObject):
         for child in xmlEl:
             if child.tag == "or":
                 f=OrFilter(self.data.shape)
-                loadFilterRecursive(child,f)
+                self.loadFilterRecursive(child,f)
             elif child.tag == "and":
                 f=AndFilter(self.data.shape)
                 self.loadFilterRecursive(child,f)
@@ -727,24 +811,30 @@ class DataModel(QObject):
                   ((GroupMgr.prefix+"sfile") in self.cols and self.groupmgr is not None)) \
                 and 'pstart' in self.cols and 'pend' in self.cols
 
+    def _streamBlock(self,datarow,startcol,endcol):
+        start=self.data[startcol][datarow]
+        end=self.data[endcol][datarow]
+        if start < 0 or end < start:
+            return []
+        path=self.value("sfile",datarow,False)
+        try:
+            with open(path,'rb') as sfile:
+                sfile.seek(start)
+                return sfile.read(end-start).decode(errors='replace').splitlines()
+        except FileNotFoundError:
+            print("Unable to open stream file %s"%path)
+            return []
+
     def streamPeaks(self,datarow):
         peakx=[]
         peaky=[]
-        try:
-            with open(self.value("sfile",datarow,False)) as sfile:
-                sfile.seek(self.data["pstart"][datarow])
-                end=self.data["pend"][datarow]
-                while(sfile.tell() != end):
-                    l=sfile.readline().strip().split()
-                    try:
-                        x=float(l[0])
-                        y=float(l[1])
-                        peakx.append(x)
-                        peaky.append(y)
-                    except ValueError:
-                        pass # First line won't be convertable
-        except FileNotFoundError:
-            print("Unable to open stream file %s for peak data"%self.value("sfile",datarow,False))
+        for line in self._streamBlock(datarow,"pstart","pend"):
+            l=line.split()
+            try:
+                peakx.append(float(l[0]))
+                peaky.append(float(l[1]))
+            except (ValueError,IndexError):
+                pass # column header line
         return peakx, peaky
 
     def hasStreamReflections(self):
@@ -756,28 +846,14 @@ class DataModel(QObject):
         peakx=[]
         peaky=[]
         hkl=[]
-        start = self.data["rstart"][datarow]
-        if start != -1: # Have Reflections (might not if not indexed)
+        for line in self._streamBlock(datarow,"rstart","rend"):
+            l=line.split()
             try:
-                with open(self.value("sfile",datarow,False)) as sfile:
-                    sfile.seek(start)
-                    end=self.data["rend"][datarow]
-                    while(sfile.tell() != end):
-                        l=sfile.readline().strip().split()
-                        try:
-                            x=float(l[7])
-                            y=float(l[8])
-                            peakx.append(x)
-                            peaky.append(y)
-                            hkl.append(' '.join(l[0:3]))
-                        except ValueError:
-                            pass # First line won't be convertable
-            except FileNotFoundError:
-                print("Unable to open stream file %s for reflection data"%self.value("sfile",datarow,False))
+                x=float(l[7])
+                y=float(l[8])
+            except (ValueError,IndexError):
+                continue # column header line
+            peakx.append(x)
+            peaky.append(y)
+            hkl.append(' '.join(l[0:3]))
         return peakx, peaky, hkl
-
-        
-
-
-
-    

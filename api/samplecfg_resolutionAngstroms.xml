@@ -62,7 +62,7 @@
     <field nm="rend"   prettyname="End Reflections Pointer" dtype="i4" fmt="%i"/>
     <field nm="pstart" prettyname="Begin Peaks Pointer" dtype="i4" fmt="%i"/>
     <field nm="pend"   prettyname="End Peaks Pointer" dtype="i4" fmt="%i"/>
-    <field nm="aclen"  prettyname="Average Camera Length (m)" fmt="%i"/>
+    <field nm="aclen"  prettyname="Average Camera Length (m)" fmt="%f"/>
     <field nm="cent"   prettyname="Centering" dtype="U1" fmt="%s"/>
     <field nm="ltype"  prettyname="Lattice Type" dtype="U15" fmt="%s"/>
     <field nm="vol"  prettyname="Crystal Volume (nm^3)"/>
