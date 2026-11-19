@@ -2,6 +2,7 @@
 # Sample position mapping for datgen.py: which plate well / drop / raster point each frame came from.
 
 import csv
+import fnmatch
 import os
 import re
 
@@ -13,6 +14,7 @@ POSITION_COLS = ['well', 'well_row', 'well_col', 'drop', 'grid_col', 'grid_row',
 
 # Columns that control how a row is matched or how grid positions are computed; not output.
 KEY_COLS = {'ifile', 'event', 'event_start', 'event_end', 'grid_nx', 'grid_ny', 'serpentine',
+            'fast_axis', 'grid_col_offset', 'grid_row_offset',
             'step_x_um', 'step_y_um', 'x0_um', 'y0_um'}
 
 
@@ -37,13 +39,16 @@ class PositionMap:
          the event number into grid_col/grid_row (0-based, row 0 = first line scanned).
 
     Image files are matched by full path first, then by file name alone, so a table written
-    on the beamline still matches after the data are moved.
+    on the beamline still matches after the data are moved. An ifile containing * ? or [ ]
+    is a shell-style pattern matched against the file name (e.g. "*_12_master.h5").
     """
 
     def __init__(self, table=None, grid=None, serpentine=False):
         self.rows_exact = {}     # (key, event) -> row
         self.rows_range = {}     # key -> [(start, end, row)]
         self.rows_file = {}      # key -> row
+        self.patterns = []       # (pattern, row) for ifile values with wildcards
+        self.resolved = {}       # basename -> concrete key, cache of pattern matches
         self.extra = []
         self.default_grid = (grid[0], grid[1], serpentine) if grid else None
         self._has_steps = False
@@ -71,6 +76,8 @@ class PositionMap:
         for row in reader:
             row = {k.strip(): (v.strip() if isinstance(v, str) else v) for k, v in row.items() if k}
             key = row['ifile']
+            if any(ch in key for ch in '*?['):
+                self.patterns.append(key)
             if row.get('event', '') not in ('', None):
                 self.rows_exact[(key, int(row['event']))] = row
             elif row.get('event_start', '') not in ('', None):
@@ -80,8 +87,18 @@ class PositionMap:
             else:
                 self.rows_file[key] = row
 
+    def _keys(self, ifile):
+        base = os.path.basename(ifile)
+        keys = [ifile, base]
+        if self.patterns:
+            if base not in self.resolved:
+                self.resolved[base] = next((p for p in self.patterns if fnmatch.fnmatchcase(base, p)), None)
+            if self.resolved[base] is not None:
+                keys.append(self.resolved[base])
+        return keys
+
     def _lookup(self, ifile, event):
-        for key in (ifile, os.path.basename(ifile)):
+        for key in self._keys(ifile):
             if event is not None and (key, event) in self.rows_exact:
                 return self.rows_exact[(key, event)]
             for start, end, row in self.rows_range.get(key, ()):
@@ -127,15 +144,30 @@ class PositionMap:
         elif nx and event is not None:
             nx, ny = int(nx), int(ny) if ny else None
             first = 0
-            for start, end, rr in self.rows_range.get(ifile, []) + self.rows_range.get(os.path.basename(ifile), []):
-                if rr is row:
-                    first = start
+            for key in self._keys(ifile):
+                for start, end, rr in self.rows_range.get(key, []):
+                    if rr is row:
+                        first = start
             k = event - first
-            gy, gx = divmod(k, nx)
-            if snake and gy % 2 == 1:
-                gx = nx - 1 - gx
-            if ny is not None and gy >= ny:
-                gx = gy = None
+            if str(row.get('fast_axis', 'x')).strip().lower() == 'y':
+                # lines run along y (e.g. MD3 rasters: one vertical line per column)
+                if not ny:
+                    gx = gy = None
+                else:
+                    gx, gy = divmod(k, ny)
+                    if snake and gx % 2 == 1:
+                        gy = ny - 1 - gy
+                    if gx >= nx:
+                        gx = gy = None
+            else:
+                gy, gx = divmod(k, nx)
+                if snake and gy % 2 == 1:
+                    gx = nx - 1 - gx
+                if ny is not None and gy >= ny:
+                    gx = gy = None
+            if gx is not None:
+                gx += int(float(row.get('grid_col_offset') or 0))
+                gy += int(float(row.get('grid_row_offset') or 0))
         else:
             gx = gy = None
         if gx is not None:

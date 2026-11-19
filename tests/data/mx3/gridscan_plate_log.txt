@@ -1,0 +1,493 @@
+MX3 Serial Crystallography - Plate log; SSXscanTools.py
+ScanID : 14838
+Plate Name : sbig-filtered-0-22
+--------------------------------------------------------------
+Scan Region Name: serialX_window
+Scan Counter: 0
+column_spacing : 0.02
+row_spacing : 10
+nrows : 2
+ncols : 20
+top_left : [0.675, -4.0]
+
+
+Scan Counter: 0
+Scan horizontal position (mm): 0.675
+Scan vertical position (mm): -4.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 1
+Scan horizontal position (mm): 0.47500000000000003
+Scan vertical position (mm): -4.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 2
+Scan horizontal position (mm): 0.275
+Scan vertical position (mm): -4.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 3
+Scan horizontal position (mm): 0.07499999999999996
+Scan vertical position (mm): -4.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 4
+Scan horizontal position (mm): -0.125
+Scan vertical position (mm): -4.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 5
+Scan horizontal position (mm): -0.32499999999999996
+Scan vertical position (mm): -4.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 6
+Scan horizontal position (mm): -0.5250000000000001
+Scan vertical position (mm): -4.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 7
+Scan horizontal position (mm): -0.7250000000000001
+Scan vertical position (mm): -4.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 8
+Scan horizontal position (mm): -0.925
+Scan vertical position (mm): -4.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 9
+Scan horizontal position (mm): -1.125
+Scan vertical position (mm): -4.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 10
+Scan horizontal position (mm): -1.325
+Scan vertical position (mm): -4.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 11
+Scan horizontal position (mm): -1.5250000000000001
+Scan vertical position (mm): -4.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 12
+Scan horizontal position (mm): 0.675
+Scan vertical position (mm): -3.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 13
+Scan horizontal position (mm): 0.47500000000000003
+Scan vertical position (mm): -3.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 14
+Scan horizontal position (mm): 0.275
+Scan vertical position (mm): -3.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 15
+Scan horizontal position (mm): 0.07499999999999996
+Scan vertical position (mm): -3.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 16
+Scan horizontal position (mm): -0.125
+Scan vertical position (mm): -3.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 17
+Scan horizontal position (mm): -0.32499999999999996
+Scan vertical position (mm): -3.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 18
+Scan horizontal position (mm): -0.5250000000000001
+Scan vertical position (mm): -3.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 19
+Scan horizontal position (mm): -0.7250000000000001
+Scan vertical position (mm): -3.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 20
+Scan horizontal position (mm): -0.925
+Scan vertical position (mm): -3.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 21
+Scan horizontal position (mm): -1.125
+Scan vertical position (mm): -3.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 22
+Scan horizontal position (mm): -1.325
+Scan vertical position (mm): -3.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+
+Scan Counter: 23
+Scan horizontal position (mm): -1.5250000000000001
+Scan vertical position (mm): -3.0
+sample_id : 14838
+grid_width : 105
+grid_height : 521
+omega_range : 0
+transmission : 0.01
+beam_position : [612, 512]
+photon_energy : 13
+number_of_rows : 50
+hardware_trigger : True
+detector_distance : 0.20329
+detector_roi_mode : disabled
+number_of_columns : 10
+use_centring_table : False
+md3_alignment_y_speed : 1
+crystal_finder_threshold : 1
+grid_top_left_coordinate : [607, 507]
+

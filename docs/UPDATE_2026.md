@@ -35,13 +35,14 @@ Before the update, memory use and selection time grew with every plot ever opene
 - `scripts/listevents.py`: rewritten. Counts frames through EIGER `data_NNNNNN` links.
 - `datgen.py`: rewritten parser. CrystFEL 0.10–0.12 fields, `--eiger`, `--h5`, `--headers`, `--positions`, `--grid`. All options documented in `-h`. 2019 column order preserved.
 - `datexport.py --merge`, `datplot.py` `plate` plot type, and off-screen saving fixed.
-- `tests/`: 16 tests, run on real CrystFEL 0.12 streams.
+- `scripts/mx3plate2positions.py`: MX3 SSX notebook plate csv/log → positions table (`docs/MX3_SCAN_SCRIPTS.md`).
+- `tests/`: 23 tests, run on real CrystFEL 0.12 streams and MX3-format plate csv/log.
 
 ## 3. Verification
 
 | Check | Result |
 |---|---|
-| Unit/integration tests (`pytest tests`) | 16/16 pass. Clean venv from `requirements.txt`: numpy 2.5.5, matplotlib 3.11.2, PyQt5 5.15.11, pandas 3.1.1, h5py 3.16.0, pyqtgraph 0.14.0. |
+| Unit/integration tests (`pytest tests`) | 23/23 pass. Clean venv from `requirements.txt`: numpy 2.5.5, matplotlib 3.11.2, PyQt5 5.15.11, pandas 3.1.1, h5py 3.16.0, pyqtgraph 0.14.0. |
 | Stream source | CrystFEL 0.12.0 built from source. `indexamajig` (asdf, zaef, `--multi`, `--copy-header`) run on simulated EIGER-layout bitshuffle data: 60 frames, blank, single- and two-lattice frames. |
 | datgen vs 2019 datgen on the same streams | Identical values in all 47 common columns, byte offsets included (66 rows). |
 | Offsets | Every `istart/iend/cstart/cend/pstart/pend/rstart/rend` points to the expected marker. |
@@ -85,7 +86,7 @@ Absolute times depend on the display and CPU. The ratios, and memory returning a
 
 ## 6. Known limitations / next steps
 
-- Test on MX3 streams and master files, and on the grid-scan scripts (MANUAL §4.2 checklist).
+- Test on MX3 streams and master files. Confirm the frame order of the MXCuBE grid scan (MX3_SCAN_SCRIPTS.md §2).
 - Selections drawn on the plate plot are not restored from saved filter files without that plot open.
 - Merging runs in the GUI thread, with a progress dialog and abort. A large merge blocks other interaction until the input has been sent.
 - Event IDs other than a single integer (`//N`) are stored as `event = -1`.

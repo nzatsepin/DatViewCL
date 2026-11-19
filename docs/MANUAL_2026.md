@@ -125,6 +125,10 @@ run7_master.h5,300,599,B3,2,20,15,yes
 
 ### 4.2 Writing the table at the beamline
 
+**MX3 SSX notebooks:** `scripts/mx3plate2positions.py` converts the plate CSV and plate log that `SSXscanTools.py` already writes. See [MX3_SCAN_SCRIPTS.md](MX3_SCAN_SCRIPTS.md) for the steps, the checks to make, and the problems found in the current notebooks.
+
+Other collection scripts:
+
 The most reliable source is the grid-scan script itself, because it knows the well, drop, grid size and scan order when each scan starts. Add one call per scan at the end of the script:
 
 ```bash
@@ -134,11 +138,13 @@ python /path/to/DatView/scripts/makepositions.py -o /data/.../plate1_positions.c
 
 From Python, append the same CSV row with `csv.DictWriter` (columns as in §4.1).
 
-Before using this with the MX3 grid-scan scripts, check against one real scan that:
+Check against one real scan that:
 
 1. the master file name the script logs matches the `ifile` CrystFEL writes to the stream (`Image filename:`);
-2. the frame order (start corner, fast axis, snake or not) matches the convention above;
-3. scans that MXCuBE splits across several master files, or several drops written to one master file, are covered by `event_start`/`event_end`.
+2. the frame order (start corner, fast axis, snake or not) matches the convention above. Lines along y take `fast_axis = y`;
+3. scans split across several master files, or several drops written to one master file, are covered by `event_start`/`event_end`.
+
+More positions-table columns: `fast_axis` (`x` default, `y` = lines along y), `grid_col_offset`/`grid_row_offset` (place a scan inside a larger map). `ifile` may contain wildcards (`*_12_master.h5`).
 
 For a single raster without plate information: `datgen.py --grid NX NY [--serpentine]`.
 

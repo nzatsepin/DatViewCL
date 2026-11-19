@@ -186,3 +186,10 @@ def test_viewer_reads_peaks_and_reflections(tmp_path):
         if m.data["multi"][row] > 0:
             rx, ry, hkl = m.streamReflections(row)
             assert len(rx) == m.data["nref"][row] and len(hkl) == len(rx)
+
+
+def test_text_column_from_positions_loads(tmp_path):
+    """Free-text columns from a positions table (not declared in the config) load as categories."""
+    from api.datamodel import DataModel
+    m = DataModel(make_dat(tmp_path, positions=True))
+    assert set(m.digitized["condition"]) == {"PEG_20%", "PEG_25%"}

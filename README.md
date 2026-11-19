@@ -48,7 +48,7 @@ All scripts take `-h`.
 | **Merge without a stream file** | *File → Merge Selection* or `datexport.py --merge "..."` pipes the selected chunks straight into `process_hkl`/`partialator` (`-i -`). The output is byte-identical to merging an exported stream. |
 | **CrystFEL 0.10–0.12 streams** | New fields: `serial`, `hit`, `ntries`, `pkres`, `uaxis`, `presid`. Byte-exact offsets. `--headers` adds every `--copy-header` value. |
 | **EIGER / HDF5 master files** | `--eiger` adds detector distance, beam centre, count time, wavelength and ω from the master file. `--h5 PATH` adds any per-frame dataset. The item viewer reads frames through the `data_NNNNNN` links. `scripts/h5fields.py` lists usable fields. |
-| **Plate / sample position plot** | Any column per well, drop and raster point of a 24- or 96-well plate (or a bare raster). Selections on the plate sync to all plots. See the [manual](docs/MANUAL_2026.md#sample-positions-and-the-plate-plot). |
+| **Plate / sample position plot** | Any column per well, drop and raster point of a 24- or 96-well plate (or a bare raster). Selections on the plate sync to all plots. See the [manual](docs/MANUAL_2026.md#4-sample-positions-and-the-plate-plot). MX3 scan notebooks: `scripts/mx3plate2positions.py` ([docs/MX3_SCAN_SCRIPTS.md](docs/MX3_SCAN_SCRIPTS.md)). |
 | **Compatibility** | Python 3.9–3.13, numpy 2, matplotlib ≥ 3.9. Dat and filter files from 2019 still load. LCLS/CXI code paths kept unchanged. |
 
 ![Plate plot](docs/img/gui_plate_selection.png)
@@ -58,6 +58,7 @@ All scripts take `-h`.
 - [Manual (2026 additions)](docs/MANUAL_2026.md): installation, new options, sample positions, merging, troubleshooting
 - [Tutorial and manual (2019)](https://zatsepinlab.atlassian.net/wiki/spaces/DAT/pages/827785219/Tutorial+2019): GUI, filters, partitions, groups and configuration are all unchanged
 - [Update notes and benchmarks](docs/UPDATE_2026.md)
+- [MX3 scan notebooks → position maps](docs/MX3_SCAN_SCRIPTS.md)
 - [Changelog](CHANGELOG.md)
 
 ## Tests

@@ -161,7 +161,7 @@ class DataModel(QObject):
             out={}
             for c in self.cols:
                 col=df[c]
-                if c not in strcols and col.dtype == object:
+                if c not in strcols and not pd.api.types.is_numeric_dtype(col):
                     # Text in a column not declared as a string in the config (e.g. a plate
                     # well label from a positions table): treat it as categorical.
                     self.strcols.add(c)
