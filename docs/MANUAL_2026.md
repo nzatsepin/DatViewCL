@@ -18,8 +18,8 @@ Contents
 ## 1. Installation
 
 ```bash
-git clone https://github.com/nzatsepin/DatView.git
-cd DatView
+git clone https://github.com/nzatsepin/DatViewCL.git
+cd DatViewCL
 python3 -m venv ~/venvs/datview          # optional
 source ~/venvs/datview/bin/activate
 pip install -r requirements.txt

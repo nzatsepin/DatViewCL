@@ -4,7 +4,7 @@ DatView displays tables of per-frame and per-crystal statistics from serial crys
 
 Reference: N. Stander, P. Fromme & N. A. Zatsepin, *J. Appl. Cryst.* **52**, 1440–1448 (2019), [doi:10.1107/S1600576719012044](https://doi.org/10.1107/S1600576719012044).
 
-![Linked histograms](docs/img/gui_main_synced.png)
+![Unit cell a mapped onto the raster grid](docs/img/mx3_gridscan_demo.png)
 
 ## Requirements
 
@@ -19,8 +19,8 @@ pip install -r requirements.txt
 ## Quick start
 
 ```bash
-git clone https://github.com/nzatsepin/DatView.git
-cd DatView
+git clone https://github.com/nzatsepin/DatViewCL.git
+cd DatViewCL
 pip install -r requirements.txt
 
 # 1. Stream(s) -> table
@@ -72,4 +72,8 @@ The tests use small real CrystFEL 0.12 streams (`tests/data`). If `process_hkl` 
 
 ## Credits
 
-Written by Natasha Stander (Zatsepin lab, 2017–2019). 2026 update for the Zatsepin lab, Swinburne University of Technology. Includes a modified CfelPyUtils geometry parser and the histogram clip function of cxiview.
+Original written by Natasha Stander (Zatsepin lab, 2017–2019).
+
+Updated in 2026 in Zatsepin lab, Swinburne University of Technology.
+
+Includes a modified CfelPyUtils geometry parser and the histogram clip function of cxiview.
