@@ -1,6 +1,6 @@
 # DatView manual: 2026 additions
 
-This supplements the 2019 *DatView Manual and Tutorial*. The GUI, filters, partitions, groups, XML configuration and scripts described there are unchanged unless this document says otherwise.
+This supplements the 2019 [*DatView Manual and Tutorial*](DatView_Manual_and_Tutorial_2019.pdf). The GUI, filters, partitions, groups, XML configuration and scripts described there are unchanged unless this document says otherwise.
 
 Contents
 

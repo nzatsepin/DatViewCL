@@ -56,7 +56,7 @@ All scripts take `-h`.
 ## Documentation
 
 - [Manual (2026 additions)](docs/MANUAL_2026.md): installation, new options, sample positions, merging, troubleshooting
-- [Tutorial and manual (2019)](https://zatsepinlab.atlassian.net/wiki/spaces/DAT/pages/827785219/Tutorial+2019): GUI, filters, partitions, groups and configuration are all unchanged
+- [Tutorial and manual (2019, PDF)](docs/DatView_Manual_and_Tutorial_2019.pdf): written for the 2019 version. GUI, filters, partitions, groups and configuration are unchanged; installation and new features are in the 2026 manual
 - [Update notes and benchmarks](docs/UPDATE_2026.md)
 - [MX3 scan notebooks → position maps](docs/MX3_SCAN_SCRIPTS.md)
 - [Changelog](CHANGELOG.md)
