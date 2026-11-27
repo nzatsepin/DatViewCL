@@ -1,6 +1,6 @@
 # DatView manual: 2026 additions
 
-This supplements the 2019 [*DatView Manual and Tutorial*](DatView_Manual_and_Tutorial_2019.pdf). The GUI, filters, partitions, groups, XML configuration and scripts described there are unchanged unless this document says otherwise.
+This supplements the 2019 [*DatView Manual and Tutorial*](DatView_Manual_and_Tutorial_2019.pdf). For a walkthrough of the GUI, see the [tutorial](tutorial/README.md). The GUI, filters, partitions, groups, XML configuration and scripts described there are unchanged unless this document says otherwise.
 
 Contents
 
@@ -201,8 +201,6 @@ python datexport.py --partition well --merge "process_hkl -y 4/mmm -o by_well.hk
 - **Scatter plots** with more points than `<scatterRasterThreshold>` (default 50,000, in the XML config) are drawn as an image at screen resolution. Each pixel shows the mean colour value of the points in it, and the image is re-binned after zoom or pan. Selection, zoom and tooltips are unchanged. Set the threshold very high to always draw individual markers.
 - **Hidden plots** do not redraw. They update when shown.
 - **Reloading.** *Save Numpy* (`.npz`) reloads faster than the `.dat` file.
-
-Measured on 1,000,000 rows (2-core VM), 12 histograms open, then 5 scatter plots opened and closed: memory 0.55 GB vs 2.9–3.5 GB (2019), selection update 0.8–2.0 s vs 1.3–32 s. Details: [UPDATE_2026.md](UPDATE_2026.md).
 
 ## 7. Changed behaviour and compatibility
 

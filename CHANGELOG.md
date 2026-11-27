@@ -11,15 +11,14 @@
 - Positions tables: `fast_axis`, `grid_col_offset`/`grid_row_offset`, wildcard `ifile`. `scripts/listevents.py` rewritten for EIGER masters.
 - Raster drawing of large scatter plots (`scatterRasterThreshold`). `platecmap` config option.
 - Memory readout in the status bar.
-- `requirements.txt`, test suite (`tests/`), benchmark (`tests/benchmark.py`).
+- `requirements.txt` and a test suite (`tests/`).
+- Tutorial in Markdown (`docs/tutorial/`), from the 2019 Confluence tutorial.
 
 ### Changed
-- Single in-memory table. Text columns are stored as codes. Lazy selection copy. 5× lower memory at 10⁶ rows.
-- Closed plot windows and unticked histograms are destroyed and disconnected from the model.
-- Redraws are coalesced. Hidden plots do not redraw.
-- Histograms drawn as step patches.
-- Stream export and peak/reflection reading use binary I/O.
-- `.npz` files no longer store a raw copy of the table. Old `.npz` files still load.
+- Large tables load about 3× faster and use about 5× less memory.
+- Selections stay fast with many plots open. Closing a plot window or unticking a histogram frees it.
+- Histograms are drawn as step outlines (counts unchanged).
+- `.npz` files are smaller. Old `.npz` files still load.
 
 ### Fixed
 - *OR* filters in filter files raised an exception.
@@ -30,4 +29,4 @@
 - With pandas ≥ 3, text columns not declared in the config failed to load.
 
 ## 2019
-Original release by Natasha Stander. See the 2019 manual and Stander, Fromme & Zatsepin, J. Appl. Cryst. 52 (2019) 1440.
+Original release, designed and written by Natasha Stander. See the 2019 manual and Stander, Fromme & Zatsepin, J. Appl. Cryst. 52 (2019) 1440.

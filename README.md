@@ -44,7 +44,7 @@ All scripts take `-h`.
 
 | | |
 |---|---|
-| **Memory and speed** | 5× less memory and interactive selections with any number of plots open: 1,000,000 rows, 12 histograms + 5 scatter plots: 0.5 GB vs 3.5 GB; a selection updates in 2 s vs 30 s. Closed plots are now freed. See [docs/UPDATE_2026.md](docs/UPDATE_2026.md). |
+| **Faster, lighter** | Large tables load about 3× faster and use about 5× less memory. Selections stay fast with many plots open, and closing a plot frees its memory. |
 | **Merge without a stream file** | *File → Merge Selection* or `datexport.py --merge "..."` pipes the selected chunks straight into `process_hkl`/`partialator` (`-i -`). The output is byte-identical to merging an exported stream. |
 | **CrystFEL 0.10–0.12 streams** | New fields: `serial`, `hit`, `ntries`, `pkres`, `uaxis`, `presid`. Byte-exact offsets. `--headers` adds every `--copy-header` value. |
 | **EIGER / HDF5 master files** | `--eiger` adds detector distance, beam centre, count time, wavelength and ω from the master file. `--h5 PATH` adds any per-frame dataset. The item viewer reads frames through the `data_NNNNNN` links. `scripts/h5fields.py` lists usable fields. |
@@ -55,9 +55,10 @@ All scripts take `-h`.
 
 ## Documentation
 
+- [Tutorial](docs/tutorial/README.md): step-by-step walkthrough of the GUI (histograms, item viewer, control panel, plots, comparison mode)
 - [Manual (2026 additions)](docs/MANUAL_2026.md): installation, new options, sample positions, merging, troubleshooting
-- [Tutorial and manual (2019, PDF)](docs/DatView_Manual_and_Tutorial_2019.pdf): written for the 2019 version. GUI, filters, partitions, groups and configuration are unchanged; installation and new features are in the 2026 manual
-- [Update notes and benchmarks](docs/UPDATE_2026.md)
+- [Manual and tutorial (2019, PDF)](docs/DatView_Manual_and_Tutorial_2019.pdf): full reference for the GUI, filters, partitions, groups, configuration and scripts
+- [What's new in 2026](docs/UPDATE_2026.md)
 - [MX3 scan notebooks → position maps](docs/MX3_SCAN_SCRIPTS.md)
 - [Changelog](CHANGELOG.md)
 
